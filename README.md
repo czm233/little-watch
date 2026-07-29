@@ -40,16 +40,16 @@ xcodebuild -project LittleWatch.xcodeproj -scheme LittleWatch -configuration Deb
 
 稳定版本可从 [GitHub Releases](https://github.com/czm233/little-watch/releases) 下载：
 
-1. 下载 `LittleWatch-版本号-macOS-universal.zip`。
-2. 解压并将 `LittleWatch.app` 移入“应用程序”文件夹。
+1. 下载 `LittleWatch-版本号-macOS-universal.dmg`。
+2. 打开 DMG，将 `LittleWatch.app` 拖到其中的 `Applications` 快捷方式。
 3. 当前公开包使用临时签名，尚未经过 Apple 公证。首次启动如果被 macOS 拦截，请在 Finder 中右键应用并选择“打开”，然后再次确认。
 
-安装包同时支持 Apple Silicon 和 Intel Mac。每个 ZIP 都附带同名 `.sha256` 文件，可用于校验下载完整性。
+安装包同时支持 Apple Silicon 和 Intel Mac。每个 DMG 都附带同名 `.sha256` 文件，可用于校验下载完整性。
 
 ## 自动构建与发布
 
-- 推送到 `main`：自动运行测试并生成保留 14 天的通用 Release 构建。
-- 推送 `vX.Y.Z` 标签：自动测试、打包，并创建公开的 GitHub Release。
+- 推送到 `main`：自动运行测试并生成保留 14 天的通用 DMG 构建。
+- 推送 `vX.Y.Z` 标签：自动测试、打包 DMG，并创建公开的 GitHub Release。
 
 正式对外分发前仍建议配置 Developer ID 签名与 Apple 公证，以消除 Gatekeeper 警告。
 

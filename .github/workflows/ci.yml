@@ -54,7 +54,7 @@ jobs:
         with:
           name: LittleWatch-main-${{ github.sha }}
           path: |
-            ${{ runner.temp }}/release/*.zip
+            ${{ runner.temp }}/release/*.dmg
             ${{ runner.temp }}/release/*.sha256
           if-no-files-found: error
           retention-days: 14

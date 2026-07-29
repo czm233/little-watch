@@ -30,9 +30,15 @@ xcodebuild \
 
 app_path="${derived_data_path}/Build/Products/Release/LittleWatch.app"
 executable_path="${app_path}/Contents/MacOS/LittleWatch"
-archive_name="LittleWatch-${version}-macOS-universal.zip"
-archive_path="${output_dir}/${archive_name}"
-checksum_path="${archive_path}.sha256"
+dmg_name="LittleWatch-${version}-macOS-universal.dmg"
+dmg_path="${output_dir}/${dmg_name}"
+checksum_path="${dmg_path}.sha256"
+staging_dir="$(mktemp -d "${TMPDIR:-/tmp}/little-watch-dmg.XXXXXX")"
+
+cleanup() {
+    rm -rf "${staging_dir}"
+}
+trap cleanup EXIT
 
 if [[ ! -d "${app_path}" || ! -f "${executable_path}" ]]; then
     print -u2 "没有找到 Release 应用：${app_path}"
@@ -48,14 +54,23 @@ fi
 codesign --force --deep --sign - "${app_path}"
 codesign --verify --deep --strict "${app_path}"
 
-rm -f "${archive_path}" "${checksum_path}"
-ditto -c -k --sequesterRsrc --keepParent "${app_path}" "${archive_path}"
+ditto "${app_path}" "${staging_dir}/LittleWatch.app"
+ln -s /Applications "${staging_dir}/Applications"
+
+rm -f "${dmg_path}" "${checksum_path}"
+hdiutil create \
+    -volname "Little Watch" \
+    -srcfolder "${staging_dir}" \
+    -format UDZO \
+    -ov \
+    "${dmg_path}"
+hdiutil verify "${dmg_path}"
 
 (
     cd "${output_dir}"
-    shasum -a 256 "${archive_name}" > "${archive_name}.sha256"
+    shasum -a 256 "${dmg_name}" > "${dmg_name}.sha256"
 )
 
-print "Release package: ${archive_path}"
+print "Release package: ${dmg_path}"
 print "Checksum: ${checksum_path}"
 print "Architectures: ${architectures}"
