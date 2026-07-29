@@ -30,7 +30,7 @@ final class AppStore: ObservableObject {
 
     let sourceName = "CPA Usage Keeper"
 
-    private let source: CPAUsageKeeperSource
+    private var source: CPAUsageKeeperSource?
     private let configurationStore: ConfigurationStore
     private let sourceConfigurationStore: SourceConfigurationStore
     private let credentialStore: KeychainCredentialStore
@@ -62,7 +62,7 @@ final class AppStore: ObservableObject {
             tokenCount: 0,
             updatedAt: Date()
         )
-        self.source = try! CPAUsageKeeperSource(
+        self.source = try? CPAUsageKeeperSource(
             configuration: resolvedSourceConfiguration,
             credentialStore: credentialStore
         )
@@ -106,7 +106,14 @@ final class AppStore: ObservableObject {
 
             pollingTask?.cancel()
             pollingTask = nil
-            try source.configure(nextConfiguration)
+            if let source {
+                try source.configure(nextConfiguration)
+            } else {
+                source = try CPAUsageKeeperSource(
+                    configuration: nextConfiguration,
+                    credentialStore: credentialStore
+                )
+            }
             sourceConfiguration = nextConfiguration
             sourceConfigurationStore.save(nextConfiguration)
             hasStoredCredential = true
@@ -148,7 +155,11 @@ final class AppStore: ObservableObject {
     var connectionStatusDetail: String {
         switch sourceConnectionState {
         case .needsCredential:
-            "输入密码后开始读取数据"
+            if !hasConfiguredSource {
+                "填写服务地址和密码后开始读取数据"
+            } else {
+                "输入密码后开始读取数据"
+            }
         case .connecting:
             "正在登录并获取用量"
         case let .reconnecting(message):
@@ -165,10 +176,14 @@ final class AppStore: ObservableObject {
         return false
     }
 
+    var hasConfiguredSource: Bool {
+        source != nil
+    }
+
     private func prepareSource() async {
         do {
             hasStoredCredential = try credentialStore.containsPassword()
-            guard hasStoredCredential else {
+            guard source != nil, hasStoredCredential else {
                 sourceConnectionState = .needsCredential
                 return
             }
@@ -183,6 +198,11 @@ final class AppStore: ObservableObject {
     }
 
     private func refreshFromSource() async -> SourceRefreshResult {
+        guard let source else {
+            refreshState = .idle
+            sourceConnectionState = .needsCredential
+            return .skipped
+        }
         guard refreshState != .refreshing else { return .skipped }
         refreshState = .refreshing
         if !hasConnectedSuccessfully {

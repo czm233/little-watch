@@ -126,7 +126,11 @@ struct SourcesPlaceholderView: View {
                     )
                     .frame(minWidth: 70)
                 }
-                .disabled(!store.hasStoredCredential || store.refreshState == .refreshing)
+                .disabled(
+                    !store.hasConfiguredSource
+                        || !store.hasStoredCredential
+                        || store.refreshState == .refreshing
+                )
             }
 
             Divider().overlay(LittleWatchTheme.hairline)

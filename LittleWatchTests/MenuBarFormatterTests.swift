@@ -194,11 +194,19 @@ final class CPAUsageModelsTests: XCTestCase {
     }
 
     func testSourceConfigurationAcceptsHTTPRootAndRejectsEmbeddedCredentials() throws {
-        let valid = SourceConfiguration.default
-        XCTAssertEqual(try valid.validatedBaseURL().absoluteString, "http://xxx.xxx.xxx.xxx:1234")
+        var valid = SourceConfiguration.default
+        valid.baseURLString = "http://example.invalid"
+        XCTAssertEqual(try valid.validatedBaseURL().absoluteString, "http://example.invalid")
 
         var invalid = valid
         invalid.baseURLString = "http://user@example.invalid"
         XCTAssertThrowsError(try invalid.validatedBaseURL())
+    }
+
+    func testDefaultSourceConfigurationIsUnconfigured() {
+        let configuration = SourceConfiguration.default
+
+        XCTAssertTrue(configuration.baseURLString.isEmpty)
+        XCTAssertThrowsError(try configuration.validatedBaseURL())
     }
 }

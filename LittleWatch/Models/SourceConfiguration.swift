@@ -7,7 +7,7 @@ struct SourceConfiguration: Codable, Equatable, Sendable {
     var realtimeWindow: String
 
     static let `default` = SourceConfiguration(
-        baseURLString: "http://xxx.xxx.xxx.xxx:1234",
+        baseURLString: "",
         pollingIntervalSeconds: 5,
         overviewRange: "today",
         realtimeWindow: "60m"
