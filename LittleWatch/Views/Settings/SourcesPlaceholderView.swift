@@ -27,6 +27,7 @@ struct SourcesPlaceholderView: View {
         }
         .onAppear {
             baseURLString = store.sourceConfiguration.baseURLString
+            password = store.sourceConfiguration.password
         }
     }
 
@@ -175,12 +176,12 @@ struct SourcesPlaceholderView: View {
                     Text("连接配置")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(LittleWatchTheme.primaryText)
-                    Text("密码只写入 macOS Keychain")
+                    Text("密码保存在 Little Watch 本地配置")
                         .font(.system(size: 10, weight: .medium, design: .rounded))
                         .foregroundStyle(LittleWatchTheme.secondaryText)
                 }
                 Spacer()
-                Image(systemName: "key.horizontal.fill")
+                Image(systemName: "internaldrive.fill")
                     .foregroundStyle(LittleWatchTheme.signal)
             }
             .padding(18)
@@ -204,24 +205,15 @@ struct SourcesPlaceholderView: View {
 
             inputRow(
                 title: "登录密码",
-                detail: store.hasStoredCredential ? "已保存；留空继续使用现有密码" : "尚未保存凭证",
+                detail: store.hasStoredCredential ? "已保存到本地配置" : "尚未保存密码",
                 symbol: "lock.fill"
             ) {
-                SecureField(store.hasStoredCredential ? "" : "输入登录密码", text: $password)
+                SecureField("输入登录密码", text: $password)
                     .textFieldStyle(.plain)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .multilineTextAlignment(.trailing)
                     .focused($focusedField, equals: .password)
                     .frame(maxWidth: 310)
-                    .overlay(alignment: .trailing) {
-                        if store.hasStoredCredential, password.isEmpty {
-                            Text("••••••••")
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                .foregroundStyle(LittleWatchTheme.primaryText)
-                                .allowsHitTesting(false)
-                                .accessibilityHidden(true)
-                        }
-                    }
             }
 
             if usesPlainHTTP {
@@ -259,11 +251,10 @@ struct SourcesPlaceholderView: View {
                     focusedField = nil
                     Task {
                         isSaving = true
-                        let succeeded = await store.configureSource(
+                        _ = await store.configureSource(
                             baseURLString: baseURLString,
                             password: password
                         )
-                        if succeeded { password = "" }
                         isSaving = false
                     }
                 } label: {
@@ -349,7 +340,9 @@ struct SourcesPlaceholderView: View {
     }
 
     private var canSubmit: Bool {
-        !isSaving && !baseURLString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !isSaving
+            && !baseURLString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !password.isEmpty
     }
 
     private var statusColor: Color {

@@ -12,7 +12,7 @@ Little Watch 是一个只驻留在 macOS 顶部栏的轻量信息工具，通过
 - 配置自动保存到 `UserDefaults`
 - 通过统一 `MetricSource` 协议隔离数据来源
 - 首个真实来源：CPA Usage Keeper
-- 密码保存在 macOS Keychain，会话 Cookie 只保存在内存
+- 密码保存在 Little Watch 本机配置，会话 Cookie 只保存在内存
 - 每 5 秒刷新今日总览与最近 60 分钟实时窗口
 - 原生读取 CPU、内存与磁盘状态
 - 固定组合或逐项轮换顶部栏指标
@@ -72,6 +72,6 @@ LittleWatch/
 - `overview?range=today` 提供今日累计金额与 Token，是顶部栏的主数据。
 - `overview/realtime?window=60m` 提供最近 60 分钟的 TPM/RPM 等实时活跃度。
 - 登录失效后会自动重新登录一次。
-- 密码和 Token 等敏感信息不会进入代码仓库或普通配置文件。
+- 密码保存在当前 macOS 用户的 Little Watch `UserDefaults` 中，不访问 macOS Keychain，也不会进入代码仓库。该本地配置未加密，请只在受信任的 Mac 账户中使用。
 
 应用不内置默认服务地址。为兼容现有来源，应用允许用户配置 HTTP 地址；生产使用时应为服务配置 HTTPS，避免密码和会话在网络中明文传输。

@@ -33,7 +33,6 @@ final class AppStore: ObservableObject {
     private var source: CPAUsageKeeperSource?
     private let configurationStore: ConfigurationStore
     private let sourceConfigurationStore: SourceConfigurationStore
-    private let credentialStore: KeychainCredentialStore
     private let formatter = MenuBarFormatter()
     private let systemMetricsMonitor = SystemMetricsMonitor()
     private var pollingTask: Task<Void, Never>?
@@ -44,8 +43,7 @@ final class AppStore: ObservableObject {
 
     init(
         configurationStore: ConfigurationStore = ConfigurationStore(),
-        sourceConfigurationStore: SourceConfigurationStore = SourceConfigurationStore(),
-        credentialStore: KeychainCredentialStore = KeychainCredentialStore()
+        sourceConfigurationStore: SourceConfigurationStore = SourceConfigurationStore()
     ) {
         let loadedSourceConfiguration = sourceConfigurationStore.load()
         let resolvedSourceConfiguration = (try? loadedSourceConfiguration.validatedBaseURL()) == nil
@@ -54,18 +52,15 @@ final class AppStore: ObservableObject {
 
         self.configurationStore = configurationStore
         self.sourceConfigurationStore = sourceConfigurationStore
-        self.credentialStore = credentialStore
         self.sourceConfiguration = resolvedSourceConfiguration
+        self.hasStoredCredential = !resolvedSourceConfiguration.password.isEmpty
         self.configuration = configurationStore.load()
         self.snapshot = MetricSnapshot(
             costUSD: 0,
             tokenCount: 0,
             updatedAt: Date()
         )
-        self.source = try? CPAUsageKeeperSource(
-            configuration: resolvedSourceConfiguration,
-            credentialStore: credentialStore
-        )
+        self.source = try? CPAUsageKeeperSource(configuration: resolvedSourceConfiguration)
 
         Task { [weak self] in
             await self?.prepareSource()
@@ -98,9 +93,9 @@ final class AppStore: ObservableObject {
         do {
             _ = try nextConfiguration.validatedBaseURL()
             if !password.isEmpty {
-                try credentialStore.savePassword(password)
+                nextConfiguration.password = password
             }
-            guard try credentialStore.containsPassword() else {
+            guard !nextConfiguration.password.isEmpty else {
                 throw SourceConfigurationError.missingPassword
             }
 
@@ -109,10 +104,7 @@ final class AppStore: ObservableObject {
             if let source {
                 try source.configure(nextConfiguration)
             } else {
-                source = try CPAUsageKeeperSource(
-                    configuration: nextConfiguration,
-                    credentialStore: credentialStore
-                )
+                source = try CPAUsageKeeperSource(configuration: nextConfiguration)
             }
             sourceConfiguration = nextConfiguration
             sourceConfigurationStore.save(nextConfiguration)
@@ -132,8 +124,13 @@ final class AppStore: ObservableObject {
         pollingTask?.cancel()
         pollingTask = nil
         hasConnectedSuccessfully = false
+
+        var nextConfiguration = sourceConfiguration
+        nextConfiguration.password = ""
         do {
-            try credentialStore.deletePassword()
+            try source?.configure(nextConfiguration)
+            sourceConfiguration = nextConfiguration
+            sourceConfigurationStore.save(nextConfiguration)
             hasStoredCredential = false
             sourceConnectionState = .needsCredential
             refreshState = .idle
@@ -181,19 +178,15 @@ final class AppStore: ObservableObject {
     }
 
     private func prepareSource() async {
-        do {
-            hasStoredCredential = try credentialStore.containsPassword()
-            guard source != nil, hasStoredCredential else {
-                sourceConnectionState = .needsCredential
-                return
-            }
+        hasStoredCredential = !sourceConfiguration.password.isEmpty
+        guard source != nil, hasStoredCredential else {
+            sourceConnectionState = .needsCredential
+            return
+        }
 
-            let result = await refreshFromSource()
-            if result.shouldContinuePolling {
-                schedulePolling()
-            }
-        } catch {
-            sourceConnectionState = .failed(error.localizedDescription)
+        let result = await refreshFromSource()
+        if result.shouldContinuePolling {
+            schedulePolling()
         }
     }
 

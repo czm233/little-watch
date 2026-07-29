@@ -2,16 +2,41 @@ import Foundation
 
 struct SourceConfiguration: Codable, Equatable, Sendable {
     var baseURLString: String
+    var password: String
     var pollingIntervalSeconds: Int
     var overviewRange: String
     var realtimeWindow: String
 
     static let `default` = SourceConfiguration(
         baseURLString: "",
+        password: "",
         pollingIntervalSeconds: 5,
         overviewRange: "today",
         realtimeWindow: "60m"
     )
+
+    init(
+        baseURLString: String,
+        password: String,
+        pollingIntervalSeconds: Int,
+        overviewRange: String,
+        realtimeWindow: String
+    ) {
+        self.baseURLString = baseURLString
+        self.password = password
+        self.pollingIntervalSeconds = pollingIntervalSeconds
+        self.overviewRange = overviewRange
+        self.realtimeWindow = realtimeWindow
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        baseURLString = try container.decode(String.self, forKey: .baseURLString)
+        password = try container.decodeIfPresent(String.self, forKey: .password) ?? ""
+        pollingIntervalSeconds = try container.decode(Int.self, forKey: .pollingIntervalSeconds)
+        overviewRange = try container.decode(String.self, forKey: .overviewRange)
+        realtimeWindow = try container.decode(String.self, forKey: .realtimeWindow)
+    }
 
     func validatedBaseURL() throws -> URL {
         let trimmed = baseURLString.trimmingCharacters(in: .whitespacesAndNewlines)

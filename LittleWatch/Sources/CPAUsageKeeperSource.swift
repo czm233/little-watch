@@ -230,16 +230,11 @@ final class CPAUsageKeeperSource: MetricSource {
     let id = "cpa-usage-keeper"
     let displayName = "CPA Usage Keeper"
 
-    private let credentialStore: KeychainCredentialStore
     private var configuration: SourceConfiguration
     private var client: CPAUsageKeeperClient
 
-    init(
-        configuration: SourceConfiguration,
-        credentialStore: KeychainCredentialStore
-    ) throws {
+    init(configuration: SourceConfiguration) throws {
         self.configuration = configuration
-        self.credentialStore = credentialStore
         client = CPAUsageKeeperClient(baseURL: try configuration.validatedBaseURL())
     }
 
@@ -253,15 +248,12 @@ final class CPAUsageKeeperSource: MetricSource {
     }
 
     func fetch() async throws -> MetricSnapshot {
-        guard
-            let password = try credentialStore.loadPassword(),
-            !password.isEmpty
-        else {
+        guard !configuration.password.isEmpty else {
             throw SourceConfigurationError.missingPassword
         }
 
         return try await client.fetchMetrics(
-            password: password,
+            password: configuration.password,
             overviewRange: configuration.overviewRange,
             realtimeWindow: configuration.realtimeWindow
         )

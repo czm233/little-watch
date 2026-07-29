@@ -207,6 +207,27 @@ final class CPAUsageModelsTests: XCTestCase {
         let configuration = SourceConfiguration.default
 
         XCTAssertTrue(configuration.baseURLString.isEmpty)
+        XCTAssertTrue(configuration.password.isEmpty)
         XCTAssertThrowsError(try configuration.validatedBaseURL())
+    }
+
+    func testSourceConfigurationDecodesLegacyDataWithoutPassword() throws {
+        let data = Data(
+            #"{"baseURLString":"http://example.invalid","pollingIntervalSeconds":5,"overviewRange":"today","realtimeWindow":"60m"}"#.utf8
+        )
+
+        let configuration = try JSONDecoder().decode(SourceConfiguration.self, from: data)
+
+        XCTAssertTrue(configuration.password.isEmpty)
+    }
+
+    func testSourceConfigurationPersistsPasswordInLocalConfiguration() throws {
+        var configuration = SourceConfiguration.default
+        configuration.password = "local-sample"
+
+        let data = try JSONEncoder().encode(configuration)
+        let decoded = try JSONDecoder().decode(SourceConfiguration.self, from: data)
+
+        XCTAssertEqual(decoded.password, "local-sample")
     }
 }
