@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-package:
+    name: Test and package
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Run tests
+        run: |
+          xcodebuild -quiet \
+            -project LittleWatch.xcodeproj \
+            -scheme LittleWatch \
+            -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/LittleWatchTests" \
+            CODE_SIGNING_ALLOWED=NO \
+            test
+
+      - name: Build universal Release package
+        if: github.event_name != 'pull_request'
+        env:
+          VERSION: 0.1.${{ github.run_number }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          OUTPUT_DIR: ${{ runner.temp }}/release
+          DERIVED_DATA_PATH: ${{ runner.temp }}/LittleWatchRelease
+        run: ./scripts/build-release.sh
+
+      - name: Upload Release artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: LittleWatch-main-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/release/*.zip
+            ${{ runner.temp }}/release/*.sha256
+          if-no-files-found: error
+          retention-days: 14

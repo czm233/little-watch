@@ -14,6 +14,8 @@ Little Watch 是一个只驻留在 macOS 顶部栏的轻量信息工具，通过
 - 首个真实来源：CPA Usage Keeper
 - 密码保存在 macOS Keychain，会话 Cookie 只保存在内存
 - 每 5 秒刷新今日总览与最近 60 分钟实时窗口
+- 原生读取 CPU、内存与磁盘状态
+- 固定组合或逐项轮换顶部栏指标
 
 ## 技术栈
 
@@ -33,6 +35,23 @@ xcodebuild -project LittleWatch.xcodeproj -scheme LittleWatch -configuration Deb
 ```
 
 应用采用 `LSUIElement` 模式，不显示 Dock 图标。运行后请在 macOS 顶部栏寻找用量文本。
+
+## 下载
+
+稳定版本可从 [GitHub Releases](https://github.com/czm233/little-watch/releases) 下载：
+
+1. 下载 `LittleWatch-版本号-macOS-universal.zip`。
+2. 解压并将 `LittleWatch.app` 移入“应用程序”文件夹。
+3. 当前公开包使用临时签名，尚未经过 Apple 公证。首次启动如果被 macOS 拦截，请在 Finder 中右键应用并选择“打开”，然后再次确认。
+
+安装包同时支持 Apple Silicon 和 Intel Mac。每个 ZIP 都附带同名 `.sha256` 文件，可用于校验下载完整性。
+
+## 自动构建与发布
+
+- 推送到 `main`：自动运行测试并生成保留 14 天的通用 Release 构建。
+- 推送 `vX.Y.Z` 标签：自动测试、打包，并创建公开的 GitHub Release。
+
+正式对外分发前仍建议配置 Developer ID 签名与 Apple 公证，以消除 Gatekeeper 警告。
 
 ## 结构
 
@@ -55,4 +74,4 @@ LittleWatch/
 - 登录失效后会自动重新登录一次。
 - 密码和 Token 等敏感信息不会进入代码仓库或普通配置文件。
 
-当前默认服务地址使用 HTTP。为兼容该服务，应用允许明文 HTTP 请求；生产使用时应为服务配置 HTTPS，避免密码和会话在网络中明文传输。
+应用不内置默认服务地址。为兼容现有来源，应用允许用户配置 HTTP 地址；生产使用时应为服务配置 HTTPS，避免密码和会话在网络中明文传输。
