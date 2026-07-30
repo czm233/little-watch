@@ -44,7 +44,7 @@ xcodebuild -project LittleWatch.xcodeproj -scheme LittleWatch -configuration Deb
 2. 打开 DMG，将 `LittleWatch.app` 拖到其中的 `Applications` 快捷方式。
 3. 当前公开包使用临时签名，尚未经过 Apple 公证。首次启动如果被 macOS 拦截，请在 Finder 中右键应用并选择“打开”，然后再次确认。
 
-安装包同时支持 Apple Silicon 和 Intel Mac。每个 DMG 都附带同名 `.sha256` 文件，可用于校验下载完整性。
+安装包同时支持 Apple Silicon 和 Intel Mac。
 
 ## 自动构建与发布
 

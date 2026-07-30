@@ -38,7 +38,6 @@ app_path="${derived_data_path}/Build/Products/Release/LittleWatch.app"
 executable_path="${app_path}/Contents/MacOS/LittleWatch"
 dmg_name="LittleWatch-${version}-macOS-universal.dmg"
 dmg_path="${output_dir}/${dmg_name}"
-checksum_path="${dmg_path}.sha256"
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/little-watch-dmg.XXXXXX")"
 writable_dmg_path="${work_dir}/LittleWatch-writable.dmg"
 mount_dir=""
@@ -123,7 +122,7 @@ sync
 hdiutil detach "${mounted_device}" >/dev/null
 is_mounted=false
 
-rm -f "${dmg_path}" "${checksum_path}"
+rm -f "${dmg_path}" "${dmg_path}.sha256"
 hdiutil convert \
     "${writable_dmg_path}" \
     -format UDZO \
@@ -132,11 +131,5 @@ hdiutil convert \
     -o "${dmg_path}"
 hdiutil verify "${dmg_path}"
 
-(
-    cd "${output_dir}"
-    shasum -a 256 "${dmg_name}" > "${dmg_name}.sha256"
-)
-
 print "Release package: ${dmg_path}"
-print "Checksum: ${checksum_path}"
 print "Architectures: ${architectures}"

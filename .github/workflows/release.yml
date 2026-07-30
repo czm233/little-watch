@@ -50,7 +50,6 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             "$RUNNER_TEMP"/release/*.dmg \
-            "$RUNNER_TEMP"/release/*.sha256 \
             --verify-tag \
             --generate-notes \
             --title "Little Watch ${GITHUB_REF_NAME#v}"
