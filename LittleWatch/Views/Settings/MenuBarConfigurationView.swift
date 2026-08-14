@@ -1,7 +1,9 @@
+import AppKit
 import SwiftUI
 
 struct MenuBarConfigurationView: View {
     @ObservedObject var store: AppStore
+    @StateObject private var launchAtLoginController = LaunchAtLoginController()
 
     var body: some View {
         ScrollView {
@@ -10,10 +12,17 @@ struct MenuBarConfigurationView: View {
                 MenuBarPreview(title: store.menuBarTitle)
                 displayFields
                 formatting
+                launchBehavior
             }
             .padding(.horizontal, 34)
             .padding(.vertical, 30)
             .frame(maxWidth: 780, alignment: .leading)
+        }
+        .onAppear {
+            launchAtLoginController.refreshStatus()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            launchAtLoginController.refreshStatus()
         }
     }
 
@@ -171,6 +180,47 @@ struct MenuBarConfigurationView: View {
                     }
                     .labelsHidden()
                     .frame(width: 105)
+                }
+            }
+            .instrumentCard()
+        }
+    }
+
+    private var launchBehavior: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel(index: "03", title: "启动行为", detail: "macOS 登录项")
+
+            SettingControlRow(
+                title: "登录时自动启动",
+                detail: launchAtLoginController.statusDetail,
+                symbol: "power"
+            ) {
+                HStack(spacing: 10) {
+                    if launchAtLoginController.requiresApproval {
+                        Button("打开系统设置") {
+                            launchAtLoginController.openSystemSettings()
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(LittleWatchTheme.signal)
+                    }
+
+                    if launchAtLoginController.isUpdating {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { launchAtLoginController.isEnabled },
+                            set: { launchAtLoginController.setEnabled($0) }
+                        )
+                    )
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .disabled(launchAtLoginController.isUpdating)
                 }
             }
             .instrumentCard()

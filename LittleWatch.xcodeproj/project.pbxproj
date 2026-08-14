@@ -26,6 +26,12 @@
 		A00000000000000000000013 /* CPAUsageKeeperSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000013 /* CPAUsageKeeperSource.swift */; };
 		A00000000000000000000014 /* SystemMetricsSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000015 /* SystemMetricsSnapshot.swift */; };
 		A00000000000000000000015 /* SystemMetricsMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000016 /* SystemMetricsMonitor.swift */; };
+		AA1000000000000000000001 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1000000000000000000001 /* LaunchAtLoginController.swift */; };
+		AA1000000000000000000002 /* LaunchAtLoginControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1000000000000000000002 /* LaunchAtLoginControllerTests.swift */; };
+		AC2000000000000000000001 /* UsageAlertManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC2000000000000000000001 /* UsageAlertManager.swift */; };
+		AC2000000000000000000002 /* UsageInsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC2000000000000000000002 /* UsageInsightsView.swift */; };
+		AD3000000000000000000001 /* CPAQuotaRefreshSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD3000000000000000000001 /* CPAQuotaRefreshSource.swift */; };
+		AD3000000000000000000002 /* CPAQuotaRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD3000000000000000000002 /* CPAQuotaRefreshTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,6 +66,12 @@
 		B00000000000000000000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B00000000000000000000015 /* SystemMetricsSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMetricsSnapshot.swift; sourceTree = "<group>"; };
 		B00000000000000000000016 /* SystemMetricsMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMetricsMonitor.swift; sourceTree = "<group>"; };
+		BB1000000000000000000001 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
+		BB1000000000000000000002 /* LaunchAtLoginControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginControllerTests.swift; sourceTree = "<group>"; };
+		BC2000000000000000000001 /* UsageAlertManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageAlertManager.swift; sourceTree = "<group>"; };
+		BC2000000000000000000002 /* UsageInsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageInsightsView.swift; sourceTree = "<group>"; };
+		BD3000000000000000000001 /* CPAQuotaRefreshSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPAQuotaRefreshSource.swift; sourceTree = "<group>"; };
+		BD3000000000000000000002 /* CPAQuotaRefreshTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPAQuotaRefreshTests.swift; sourceTree = "<group>"; };
 		B00000000000000000000100 /* LittleWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LittleWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B00000000000000000000101 /* LittleWatchTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LittleWatchTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -95,8 +107,8 @@
 		};
 		C00000000000000000000003 /* App */ = {isa = PBXGroup; children = (B00000000000000000000001 /* LittleWatchApp.swift */,); path = App; sourceTree = "<group>"; };
 		C00000000000000000000004 /* Models */ = {isa = PBXGroup; children = (B00000000000000000000010 /* CPAUsageModels.swift */, B00000000000000000000003 /* DisplayConfiguration.swift */, B00000000000000000000002 /* MetricSnapshot.swift */, B0000000000000000000000F /* SourceConfiguration.swift */, B00000000000000000000015 /* SystemMetricsSnapshot.swift */,); path = Models; sourceTree = "<group>"; };
-		C00000000000000000000005 /* Sources */ = {isa = PBXGroup; children = (B00000000000000000000013 /* CPAUsageKeeperSource.swift */, B00000000000000000000004 /* MetricSource.swift */,); path = Sources; sourceTree = "<group>"; };
-		C00000000000000000000006 /* Services */ = {isa = PBXGroup; children = (B00000000000000000000005 /* ConfigurationStore.swift */, B00000000000000000000011 /* SourceConfigurationStore.swift */, B00000000000000000000016 /* SystemMetricsMonitor.swift */,); path = Services; sourceTree = "<group>"; };
+		C00000000000000000000005 /* Sources */ = {isa = PBXGroup; children = (BD3000000000000000000001 /* CPAQuotaRefreshSource.swift */, B00000000000000000000013 /* CPAUsageKeeperSource.swift */, B00000000000000000000004 /* MetricSource.swift */,); path = Sources; sourceTree = "<group>"; };
+		C00000000000000000000006 /* Services */ = {isa = PBXGroup; children = (B00000000000000000000005 /* ConfigurationStore.swift */, BB1000000000000000000001 /* LaunchAtLoginController.swift */, B00000000000000000000011 /* SourceConfigurationStore.swift */, B00000000000000000000016 /* SystemMetricsMonitor.swift */, BC2000000000000000000001 /* UsageAlertManager.swift */,); path = Services; sourceTree = "<group>"; };
 		C00000000000000000000007 /* Store */ = {isa = PBXGroup; children = (B00000000000000000000006 /* AppStore.swift */,); path = Store; sourceTree = "<group>"; };
 		C00000000000000000000008 /* Views */ = {
 			isa = PBXGroup;
@@ -106,9 +118,9 @@
 		};
 		C00000000000000000000009 /* Components */ = {isa = PBXGroup; children = (B00000000000000000000008 /* MetricTile.swift */, B00000000000000000000007 /* Theme.swift */,); path = Components; sourceTree = "<group>"; };
 		C0000000000000000000000A /* MenuBar */ = {isa = PBXGroup; children = (B00000000000000000000009 /* MenuBarPanel.swift */,); path = MenuBar; sourceTree = "<group>"; };
-		C0000000000000000000000B /* LittleWatchTests */ = {isa = PBXGroup; children = (B0000000000000000000000E /* MenuBarFormatterTests.swift */,); path = LittleWatchTests; sourceTree = "<group>"; };
+		C0000000000000000000000B /* LittleWatchTests */ = {isa = PBXGroup; children = (BD3000000000000000000002 /* CPAQuotaRefreshTests.swift */, BB1000000000000000000002 /* LaunchAtLoginControllerTests.swift */, B0000000000000000000000E /* MenuBarFormatterTests.swift */,); path = LittleWatchTests; sourceTree = "<group>"; };
 		C0000000000000000000000C /* Products */ = {isa = PBXGroup; children = (B00000000000000000000100 /* LittleWatch.app */, B00000000000000000000101 /* LittleWatchTests.xctest */,); name = Products; sourceTree = "<group>"; };
-		C0000000000000000000000D /* Settings */ = {isa = PBXGroup; children = (B0000000000000000000000C /* MenuBarConfigurationView.swift */, B0000000000000000000000B /* SettingsRootView.swift */, B0000000000000000000000A /* SettingsSidebar.swift */, B0000000000000000000000D /* SourcesPlaceholderView.swift */,); path = Settings; sourceTree = "<group>"; };
+		C0000000000000000000000D /* Settings */ = {isa = PBXGroup; children = (B0000000000000000000000C /* MenuBarConfigurationView.swift */, B0000000000000000000000B /* SettingsRootView.swift */, B0000000000000000000000A /* SettingsSidebar.swift */, B0000000000000000000000D /* SourcesPlaceholderView.swift */, BC2000000000000000000002 /* UsageInsightsView.swift */,); path = Settings; sourceTree = "<group>"; };
 		C0000000000000000000000E /* Resources */ = {isa = PBXGroup; children = (B00000000000000000000014 /* Info.plist */,); path = Resources; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
@@ -163,10 +175,10 @@
 		D00000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (A00000000000000000000001, A00000000000000000000002, A00000000000000000000003, A00000000000000000000004, A00000000000000000000005, A00000000000000000000006, A00000000000000000000007, A00000000000000000000008, A00000000000000000000009, A0000000000000000000000A, A0000000000000000000000B, A0000000000000000000000C, A0000000000000000000000D, A0000000000000000000000F, A00000000000000000000010, A00000000000000000000011, A00000000000000000000013, A00000000000000000000014, A00000000000000000000015,);
+			files = (A00000000000000000000001, A00000000000000000000002, A00000000000000000000003, A00000000000000000000004, A00000000000000000000005, A00000000000000000000006, A00000000000000000000007, A00000000000000000000008, A00000000000000000000009, A0000000000000000000000A, A0000000000000000000000B, A0000000000000000000000C, A0000000000000000000000D, A0000000000000000000000F, A00000000000000000000010, A00000000000000000000011, A00000000000000000000013, A00000000000000000000014, A00000000000000000000015, AA1000000000000000000001, AC2000000000000000000001, AC2000000000000000000002, AD3000000000000000000001,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D00000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000000E,); runOnlyForDeploymentPostprocessing = 0; };
+		D00000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (AD3000000000000000000002, AA1000000000000000000002, A0000000000000000000000E,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */

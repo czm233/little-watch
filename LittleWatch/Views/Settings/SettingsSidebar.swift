@@ -2,6 +2,7 @@ import SwiftUI
 
 enum SettingsSection: String, CaseIterable, Identifiable {
     case menuBar
+    case usage
     case sources
 
     var id: String { rawValue }
@@ -9,6 +10,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .menuBar: "顶部栏"
+        case .usage: "用量与提醒"
         case .sources: "数据来源"
         }
     }
@@ -16,6 +18,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .menuBar: "menubar.rectangle"
+        case .usage: "chart.xyaxis.line"
         case .sources: "point.3.connected.trianglepath.dotted"
         }
     }

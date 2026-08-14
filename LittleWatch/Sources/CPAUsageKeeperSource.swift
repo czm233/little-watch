@@ -57,27 +57,37 @@ actor CPAUsageKeeperClient {
         session = URLSession(configuration: configuration)
     }
 
-    func fetchMetrics(
+    func fetchOverview(
         password: String,
-        overviewRange: String,
-        realtimeWindow: String
-    ) async throws -> MetricSnapshot {
+        overviewRange: String
+    ) async throws -> MetricOverviewSnapshot {
         if !authenticated {
             try await login(password: password)
         }
 
         do {
-            return try await loadMetrics(
-                overviewRange: overviewRange,
-                realtimeWindow: realtimeWindow
-            )
+            return try await loadOverview(overviewRange: overviewRange)
         } catch CPAUsageKeeperError.authenticationRequired {
             clearSession()
             try await login(password: password)
-            return try await loadMetrics(
-                overviewRange: overviewRange,
-                realtimeWindow: realtimeWindow
-            )
+            return try await loadOverview(overviewRange: overviewRange)
+        }
+    }
+
+    func fetchRealtime(
+        password: String,
+        realtimeWindow: String
+    ) async throws -> MetricRealtimeSnapshot {
+        if !authenticated {
+            try await login(password: password)
+        }
+
+        do {
+            return try await loadRealtime(realtimeWindow: realtimeWindow)
+        } catch CPAUsageKeeperError.authenticationRequired {
+            clearSession()
+            try await login(password: password)
+            return try await loadRealtime(realtimeWindow: realtimeWindow)
         }
     }
 
@@ -98,28 +108,78 @@ actor CPAUsageKeeperClient {
         authenticated = true
     }
 
-    private func loadMetrics(
-        overviewRange: String,
-        realtimeWindow: String
-    ) async throws -> MetricSnapshot {
+    private func loadOverview(overviewRange: String) async throws -> MetricOverviewSnapshot {
         let overview: CPAUsageOverviewResponse = try await get(
             path: "api/v1/usage/overview",
             query: [URLQueryItem(name: "range", value: overviewRange)]
         )
+        let now = Date()
 
-        let realtime: CPAUsageRealtimeResponse? = try? await get(
+        return MetricOverviewSnapshot(
+            costUSD: overview.summary.totalCost ?? 0,
+            costAvailable: overview.summary.costAvailable ?? (overview.summary.totalCost != nil),
+            tokenCount: overview.usage.totalTokens ?? overview.summary.tokenCount ?? 0,
+            tokenCountAvailable: overview.usage.totalTokens != nil || overview.summary.tokenCount != nil,
+            updatedAt: now,
+            totalRequests: overview.usage.totalRequests,
+            fallbackTokensPerMinute: overview.summary.tpm,
+            fallbackRequestsPerMinute: overview.summary.rpm,
+            projectedEndOfDayCostUSD: overviewRange == "today"
+                ? UsageAnalytics.projectedEndOfDayCost(
+                    currentCost: overview.summary.totalCost ?? 0,
+                    at: now,
+                    timeZoneIdentifier: overview.timezone
+                )
+                : nil
+        )
+    }
+
+    private func loadRealtime(realtimeWindow: String) async throws -> MetricRealtimeSnapshot {
+        let response: CPAUsageRealtimeResponse = try await get(
             path: "api/v1/usage/overview/realtime",
             query: [URLQueryItem(name: "window", value: realtimeWindow)]
         )
-
-        return MetricSnapshot(
-            costUSD: overview.summary.totalCost ?? 0,
-            tokenCount: overview.usage.totalTokens ?? overview.summary.tokenCount ?? 0,
-            updatedAt: Date(),
-            totalRequests: overview.usage.totalRequests,
-            tokensPerMinute: realtime?.tokenVelocity.last?.tokensPerMinute ?? overview.summary.tpm,
-            requestsPerMinute: realtime?.requestLevel.last?.requestsPerMinute ?? overview.summary.rpm
+        let now = Date()
+        let tpmTrend = ratePoints(
+            response.tokenVelocity.map { ($0.bucket, $0.tokensPerMinute) },
+            bucketSeconds: response.bucketSeconds,
+            now: now
         )
+        let rpmTrend = ratePoints(
+            response.requestLevel.map { ($0.bucket, $0.requestsPerMinute) },
+            bucketSeconds: response.bucketSeconds,
+            now: now
+        )
+
+        return MetricRealtimeSnapshot(
+            updatedAt: Date(),
+            tokensPerMinuteTrend: tpmTrend,
+            requestsPerMinuteTrend: rpmTrend,
+            usageSpike: UsageAnalytics.detectSpike(
+                tokensPerMinute: tpmTrend,
+                requestsPerMinute: rpmTrend
+            )
+        )
+    }
+
+    private func ratePoints(
+        _ values: [(bucket: String?, value: Double?)],
+        bucketSeconds: Int?,
+        now: Date
+    ) -> [UsageRatePoint] {
+        let interval = TimeInterval(max(bucketSeconds ?? 60, 1))
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fallbackFormatter = ISO8601DateFormatter()
+
+        return values.enumerated().compactMap { index, item in
+            guard let value = item.value, value.isFinite, value >= 0 else { return nil }
+            let timestamp = item.bucket.flatMap {
+                formatter.date(from: $0) ?? fallbackFormatter.date(from: $0)
+            } ?? now.addingTimeInterval(-Double(values.count - index - 1) * interval)
+            return UsageRatePoint(timestamp: timestamp, value: value)
+        }
+        .sorted { $0.timestamp < $1.timestamp }
     }
 
     private func get<Value: Decodable>(
@@ -223,6 +283,7 @@ actor CPAUsageKeeperClient {
             error.localizedDescription
         }
     }
+
 }
 
 @MainActor
@@ -241,21 +302,33 @@ final class CPAUsageKeeperSource: MetricSource {
     func configure(_ configuration: SourceConfiguration) throws {
         let previousURL = try self.configuration.validatedBaseURL()
         let nextURL = try configuration.validatedBaseURL()
+        let credentialsChanged = self.configuration.password != configuration.password
         self.configuration = configuration
-        if previousURL != nextURL {
+        if previousURL != nextURL || credentialsChanged {
             client = CPAUsageKeeperClient(baseURL: nextURL)
         }
     }
 
-    func fetch() async throws -> MetricSnapshot {
+    func fetchOverview() async throws -> MetricOverviewSnapshot {
         guard !configuration.password.isEmpty else {
             throw SourceConfigurationError.missingPassword
         }
 
-        return try await client.fetchMetrics(
+        return try await client.fetchOverview(
             password: configuration.password,
-            overviewRange: configuration.overviewRange,
+            overviewRange: configuration.overviewRange
+        )
+    }
+
+    func fetchRealtime() async throws -> MetricRealtimeSnapshot {
+        guard !configuration.password.isEmpty else {
+            throw SourceConfigurationError.missingPassword
+        }
+
+        return try await client.fetchRealtime(
+            password: configuration.password,
             realtimeWindow: configuration.realtimeWindow
         )
     }
+
 }

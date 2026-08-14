@@ -4,32 +4,66 @@ import SwiftUI
 struct MenuBarPanel: View {
     @ObservedObject var store: AppStore
     @Environment(\.openSettings) private var openSettings
+    @AppStorage(SourceSetupOnboarding.completionKey) private var hasCompletedSourceSetup = false
+
+    init(store: AppStore) {
+        self.store = store
+        let hasCompletedSourceSetup = SourceSetupOnboarding.bootstrap(for: store)
+        _hasCompletedSourceSetup = AppStorage(
+            wrappedValue: hasCompletedSourceSetup,
+            SourceSetupOnboarding.completionKey
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
 
-            VStack(spacing: 10) {
-                MetricTile(
-                    eyebrow: "本期消费",
-                    value: MenuBarFormatter().formatCost(
-                        store.snapshot.costUSD,
-                        precision: store.configuration.costPrecision
-                    ),
-                    detail: "今日累计用量",
-                    symbol: "dollarsign"
-                )
+            if hasCompletedSourceSetup {
+                VStack(spacing: 10) {
+                    MetricTile(
+                        eyebrow: "本期消费",
+                        value: MenuBarFormatter().formatCost(
+                            store.snapshot.costUSD,
+                            precision: store.configuration.costPrecision
+                        ),
+                        detail: costDetail,
+                        symbol: "dollarsign"
+                    )
 
-                MetricTile(
-                    eyebrow: "Token 消耗",
-                    value: store.snapshot.tokenCount.formatted(),
-                    detail: realtimeDetail,
-                    symbol: "number"
-                )
+                    MetricTile(
+                        eyebrow: "Token 消耗",
+                        value: store.snapshot.tokenCount.formatted(),
+                        detail: realtimeDetail,
+                        symbol: "number"
+                    )
 
-                systemMetrics
+                    systemMetrics
+
+                    quotaSummary
+
+                    if let spike = store.snapshot.usageSpike {
+                        HStack(spacing: 9) {
+                            Image(systemName: "bolt.trianglebadge.exclamationmark.fill")
+                                .foregroundStyle(LittleWatchTheme.amber)
+                            Text(spikeSummary(spike))
+                                .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                                .foregroundStyle(LittleWatchTheme.secondaryText)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(LittleWatchTheme.amber.opacity(0.055))
+                        )
+                    }
+                }
+                .padding(14)
+            } else {
+                firstRunSetup
+                    .padding(14)
             }
-            .padding(14)
 
             Divider().overlay(LittleWatchTheme.hairline)
 
@@ -40,6 +74,77 @@ struct MenuBarPanel: View {
         .preferredColorScheme(.dark)
     }
 
+    private var firstRunSetup: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(LittleWatchTheme.signal.opacity(0.12))
+                    Image(systemName: "point.3.connected.trianglepath.dotted")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(LittleWatchTheme.signal)
+                }
+                .frame(width: 40, height: 40)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("完成首次配置")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(LittleWatchTheme.primaryText)
+                    Text("连接 CPA Usage Keeper 后开始显示用量")
+                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(LittleWatchTheme.secondaryText)
+                }
+            }
+
+            HStack(spacing: 7) {
+                setupHint("1", "服务地址")
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(LittleWatchTheme.secondaryText.opacity(0.55))
+                setupHint("2", "登录密码")
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(LittleWatchTheme.secondaryText.opacity(0.55))
+                setupHint("3", "连接验证")
+            }
+
+            Button(action: showSettings) {
+                HStack {
+                    Text("打开数据源配置")
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                }
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(LittleWatchTheme.sidebar)
+                .padding(.horizontal, 13)
+                .frame(height: 36)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(LittleWatchTheme.signal)
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .background(LittleWatchTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(LittleWatchTheme.signal.opacity(0.17), lineWidth: 1)
+        }
+    }
+
+    private func setupHint(_ index: String, _ title: String) -> some View {
+        HStack(spacing: 4) {
+            Text(index)
+                .foregroundStyle(LittleWatchTheme.signal)
+            Text(title)
+                .foregroundStyle(LittleWatchTheme.secondaryText)
+        }
+        .font(.system(size: 8.5, weight: .bold, design: .rounded))
+    }
+
     private var systemMetrics: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -47,7 +152,7 @@ struct MenuBarPanel: View {
                     .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundStyle(LittleWatchTheme.secondaryText)
                 Spacer()
-                Text(store.systemSnapshot.updatedAt == .distantPast ? "采集中" : "每 5 秒更新")
+                Text(store.systemSnapshot.updatedAt == .distantPast ? "采集中" : "CPU/内存 5 秒 · 磁盘 5 分钟")
                     .font(.system(size: 9, weight: .medium, design: .rounded))
                     .foregroundStyle(LittleWatchTheme.secondaryText.opacity(0.72))
             }
@@ -74,6 +179,38 @@ struct MenuBarPanel: View {
                     progress: store.systemSnapshot.diskUsagePercent
                 )
             }
+        }
+        .padding(12)
+        .background(LittleWatchTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(LittleWatchTheme.hairline, lineWidth: 1)
+        }
+    }
+
+    private var quotaSummary: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "gauge.with.dots.needle.67percent")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(LittleWatchTheme.signal)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Weekly 剩余额度")
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .foregroundStyle(LittleWatchTheme.secondaryText)
+                Text(store.quotaRemainingPercent.map {
+                    "\(Int($0.rounded()))%"
+                } ?? "—")
+                    .font(.system(size: 17, weight: .bold, design: .monospaced))
+                    .foregroundStyle(LittleWatchTheme.signal)
+            }
+
+            Spacer()
+
+            Text(store.quotaLastUpdatedText)
+                .font(.system(size: 9, weight: .medium, design: .rounded))
+                .foregroundStyle(LittleWatchTheme.secondaryText)
         }
         .padding(12)
         .background(LittleWatchTheme.surface)
@@ -141,6 +278,20 @@ struct MenuBarPanel: View {
             .opacity(isRefreshing ? 0.38 : 1)
             .focusable(false)
 
+            Button {
+                Task { await store.refreshQuota() }
+            } label: {
+                Label(
+                    store.quotaRefreshButtonLabel,
+                    systemImage: "gauge.with.dots.needle.67percent"
+                )
+                .contentShape(Rectangle())
+            }
+            .disabled(!store.canRefreshQuota)
+            .opacity(store.canRefreshQuota ? 1 : 0.38)
+            .help(store.quotaRefreshStatusDetail)
+            .focusable(false)
+
             Spacer()
 
             Button(action: showSettings) {
@@ -178,6 +329,26 @@ struct MenuBarPanel: View {
         }
         let value = tpm.formatted(.number.precision(.fractionLength(0...1)))
         return "实时 \(value) TPM"
+    }
+
+    private var costDetail: String {
+        let forecast = store.snapshot.projectedEndOfDayCostUSD.map {
+            "预计日终 \(MenuBarFormatter().formatCost($0, precision: store.configuration.costPrecision))"
+        }
+        guard let budget = store.alertConfiguration.normalizedDailyBudgetUSD else {
+            return forecast ?? "今日累计用量"
+        }
+        let percent = Int((store.snapshot.costUSD / budget * 100).rounded())
+        if let forecast {
+            return "预算已用 \(percent)% · \(forecast)"
+        }
+        return "每日预算 \(MenuBarFormatter().formatCost(budget, precision: store.configuration.costPrecision)) · 已用 \(percent)%"
+    }
+
+    private func spikeSummary(_ spike: UsageSpikeEvent) -> String {
+        let metric = spike.metric == .tokensPerMinute ? "TPM" : "RPM"
+        let multiple = spike.multiple.formatted(.number.precision(.fractionLength(1)))
+        return "\(metric) 突增，约为近期基线的 \(multiple) 倍"
     }
 
     private func showSettings() {

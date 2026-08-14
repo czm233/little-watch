@@ -2,20 +2,32 @@ import Darwin
 import Foundation
 
 actor SystemMetricsMonitor {
+    static let diskRefreshInterval: TimeInterval = 5 * 60
+
     private var previousCPUTicks: [UInt64]?
     private var latest = SystemMetricsSnapshot.empty
+    private var lastDiskSampleAt: Date?
 
-    func sample() -> SystemMetricsSnapshot {
+    func sample(at now: Date = Date()) -> SystemMetricsSnapshot {
         let cpu = sampleCPU() ?? latest.cpuUsagePercent
         let memory = sampleMemory() ?? latest.memoryUsagePercent
-        let disk = sampleDisk()
+        let shouldRefreshDisk = lastDiskSampleAt.map {
+            now.timeIntervalSince($0) >= Self.diskRefreshInterval
+        } ?? true
+        let disk: (usagePercent: Double, freeBytes: Int64)?
+        if shouldRefreshDisk {
+            lastDiskSampleAt = now
+            disk = sampleDisk()
+        } else {
+            disk = nil
+        }
 
         latest = SystemMetricsSnapshot(
             cpuUsagePercent: cpu,
             memoryUsagePercent: memory,
             diskUsagePercent: disk?.usagePercent ?? latest.diskUsagePercent,
             diskFreeBytes: disk?.freeBytes ?? latest.diskFreeBytes,
-            updatedAt: Date()
+            updatedAt: now
         )
         return latest
     }

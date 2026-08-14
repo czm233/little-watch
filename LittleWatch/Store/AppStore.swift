@@ -22,28 +22,61 @@ final class AppStore: ObservableObject {
         }
     }
     @Published private(set) var snapshot: MetricSnapshot
+    @Published private(set) var dailyUsageCounterReset: DailyUsageCounterReset?
     @Published private(set) var systemSnapshot: SystemMetricsSnapshot = .empty
     @Published private(set) var refreshState: RefreshState = .idle
+    @Published private(set) var quotaRefreshState: QuotaRefreshState = .idle
+    @Published private(set) var quotaRefreshCooldownRemainingSeconds = 0
+    @Published private(set) var quotaRemainingPercent: Double?
+    @Published private(set) var quotaLastUpdatedAt: Date?
     @Published private(set) var sourceConnectionState: SourceConnectionState = .needsCredential
     @Published private(set) var hasStoredCredential = false
     @Published private(set) var sourceConfiguration: SourceConfiguration
+    @Published var alertConfiguration: UsageAlertConfiguration {
+        didSet {
+            alertConfigurationStore.save(alertConfiguration)
+            Task { [weak self] in
+                await self?.evaluateUsageAlerts()
+            }
+        }
+    }
+    @Published private(set) var notificationPermissionState: NotificationPermissionState = .unknown
 
     let sourceName = "CPA Usage Keeper"
 
     private var source: CPAUsageKeeperSource?
+    private var quotaRefreshSource: CPAQuotaRefreshSource?
     private let configurationStore: ConfigurationStore
     private let sourceConfigurationStore: SourceConfigurationStore
+    private let dailyUsageCounterResetStore: DailyUsageCounterResetStore
+    private let alertConfigurationStore: UsageAlertConfigurationStore
+    private let usageAlertManager: UsageAlertManager
     private let formatter = MenuBarFormatter()
     private let systemMetricsMonitor = SystemMetricsMonitor()
-    private var pollingTask: Task<Void, Never>?
+    private var overviewPollingTask: Task<Void, Never>?
+    private var realtimePollingTask: Task<Void, Never>?
     private var systemMetricsTask: Task<Void, Never>?
     private var rotationTask: Task<Void, Never>?
+    private var quotaPollingTask: Task<Void, Never>?
+    private var quotaRefreshCooldownTask: Task<Void, Never>?
+    private var quotaRefreshOperationID: UUID?
+    private var quotaConfigurationGeneration = 0
     private var rotationIndex = 0
     private var hasConnectedSuccessfully = false
+    private var isOverviewRefreshing = false
+    private var isRealtimeRefreshing = false
+    private var rawSnapshot: MetricSnapshot
+
+    private let overviewRefreshIntervalSeconds = 60
+    private let realtimeRefreshIntervalSeconds = 10
+    static let quotaRefreshIntervalSeconds = 5 * 60
 
     init(
         configurationStore: ConfigurationStore = ConfigurationStore(),
-        sourceConfigurationStore: SourceConfigurationStore = SourceConfigurationStore()
+        sourceConfigurationStore: SourceConfigurationStore = SourceConfigurationStore(),
+        dailyUsageCounterResetStore: DailyUsageCounterResetStore = DailyUsageCounterResetStore(),
+        alertConfigurationStore: UsageAlertConfigurationStore = UsageAlertConfigurationStore(),
+        usageAlertManager: UsageAlertManager? = nil
     ) {
         let loadedSourceConfiguration = sourceConfigurationStore.load()
         let resolvedSourceConfiguration = (try? loadedSourceConfiguration.validatedBaseURL()) == nil
@@ -52,18 +85,36 @@ final class AppStore: ObservableObject {
 
         self.configurationStore = configurationStore
         self.sourceConfigurationStore = sourceConfigurationStore
+        self.dailyUsageCounterResetStore = dailyUsageCounterResetStore
+        self.alertConfigurationStore = alertConfigurationStore
+        self.usageAlertManager = usageAlertManager ?? UsageAlertManager(store: alertConfigurationStore)
         self.sourceConfiguration = resolvedSourceConfiguration
         self.hasStoredCredential = !resolvedSourceConfiguration.password.isEmpty
         self.configuration = configurationStore.load()
-        self.snapshot = MetricSnapshot(
+        self.alertConfiguration = alertConfigurationStore.load()
+        let initialSnapshot = MetricSnapshot(
             costUSD: 0,
             tokenCount: 0,
             updatedAt: Date()
         )
+        self.rawSnapshot = initialSnapshot
+        let today = DailyUsageCounter.dayIdentifier()
+        let loadedReset = dailyUsageCounterResetStore.load()
+        let activeReset = loadedReset?.dayIdentifier == today ? loadedReset : nil
+        self.dailyUsageCounterReset = activeReset
+        if let loadedReset, loadedReset.dayIdentifier != today {
+            dailyUsageCounterResetStore.clear()
+        }
+        self.snapshot = activeReset.map {
+            DailyUsageCounter.adjustedSnapshot(initialSnapshot, using: $0)
+        } ?? initialSnapshot
         self.source = try? CPAUsageKeeperSource(configuration: resolvedSourceConfiguration)
+        self.quotaRefreshSource = try? CPAQuotaRefreshSource(configuration: resolvedSourceConfiguration)
 
         Task { [weak self] in
-            await self?.prepareSource()
+            guard let self else { return }
+            notificationPermissionState = await self.usageAlertManager.permissionState()
+            await self.prepareSource()
         }
         scheduleSystemMetricsPolling()
         scheduleRotation()
@@ -80,10 +131,119 @@ final class AppStore: ObservableObject {
 
     func refresh() async {
         await refreshSystemMetrics()
-        let result = await refreshFromSource()
-        if result.shouldContinuePolling, pollingTask == nil {
-            schedulePolling()
+        let overviewResult = await refreshOverview()
+        let realtimeResult = await refreshRealtime()
+        ensurePolling(
+            overviewResult: overviewResult,
+            realtimeResult: realtimeResult
+        )
+    }
+
+    /// Shared quota refresh path used by both the manual button and five-minute polling.
+    func refreshQuota() async {
+        guard let quotaRefreshSource, hasStoredCredential else {
+            quotaRefreshState = .failed("请先连接 CPA Usage Keeper")
+            return
         }
+        guard quotaRefreshOperationID == nil else { return }
+
+        // Claim the shared UI state before the first suspension point so the two buttons
+        // cannot race each other. The network actor also performs the authoritative check.
+        let operationID = UUID()
+        let configurationGeneration = quotaConfigurationGeneration
+        quotaRefreshOperationID = operationID
+        quotaRefreshState = .refreshing
+        await synchronizeQuotaRefreshCooldown()
+        guard quotaRefreshOperationID == operationID else { return }
+        guard quotaRefreshCooldownRemainingSeconds == 0 else {
+            quotaRefreshState = .failed(
+                "额度更新每分钟最多一次，请在 \(quotaRefreshCooldownRemainingSeconds) 秒后重试"
+            )
+            quotaRefreshOperationID = nil
+            return
+        }
+
+        do {
+            let result = try await quotaRefreshSource.refreshHighestPriorityCodexQuota()
+            if quotaConfigurationGeneration == configurationGeneration {
+                quotaRemainingPercent = result.quota.weeklyRemainingPercent
+                quotaLastUpdatedAt = result.refreshedAt
+                quotaRefreshState = .succeeded(result.refreshedAt)
+            }
+        } catch is CancellationError {
+            if quotaConfigurationGeneration == configurationGeneration {
+                quotaRefreshState = .failed("额度更新已取消；已发出的请求不会自动重试")
+            }
+        } catch {
+            if quotaConfigurationGeneration == configurationGeneration {
+                quotaRefreshState = .failed(error.localizedDescription)
+            }
+        }
+        guard quotaRefreshOperationID == operationID else { return }
+        quotaRefreshOperationID = nil
+        if quotaConfigurationGeneration != configurationGeneration {
+            quotaRefreshState = hasStoredCredential ? .idle : .failed("请先连接 CPA Usage Keeper")
+        }
+        await synchronizeQuotaRefreshCooldown()
+    }
+
+    func resetDailyUsageCounter() {
+        rebaseDailyUsageCounter(using: rawSnapshot, at: Date())
+        usageAlertManager.resetDailyBudgetAlert()
+        Task { await evaluateUsageAlerts() }
+    }
+
+    var canRefreshQuota: Bool {
+        hasConfiguredSource
+            && hasStoredCredential
+            && quotaRefreshCooldownRemainingSeconds == 0
+            && quotaRefreshOperationID == nil
+    }
+
+    var quotaRefreshButtonLabel: String {
+        if quotaRefreshState == .refreshing { return "更新中" }
+        if quotaRefreshCooldownRemainingSeconds > 0 {
+            return "\(quotaRefreshCooldownRemainingSeconds)s 后可更新"
+        }
+        return "更新额度"
+    }
+
+    var quotaRefreshStatusDetail: String {
+        switch quotaRefreshState {
+        case .idle:
+            quotaRefreshCooldownRemainingSeconds > 0
+                ? "额度更新已进入 1 分钟冷却"
+                : "手动更新优先级最高的 Codex 凭证，每分钟最多一次"
+        case .refreshing:
+            "正在更新优先级最高的 Codex 凭证额度"
+        case let .succeeded(date):
+            "额度已更新 · \(date.formatted(date: .omitted, time: .standard))"
+        case let .failed(message):
+            message
+        }
+    }
+
+    var quotaRemainingPercentText: String {
+        guard let quotaRemainingPercent else { return "额度暂无数据" }
+        return "Weekly 剩余 \(Int(quotaRemainingPercent.rounded()))%"
+    }
+
+    var quotaLastUpdatedText: String {
+        guard let quotaLastUpdatedAt else { return "尚未更新" }
+        return "最后更新 \(quotaLastUpdatedAt.formatted(date: .omitted, time: .shortened))"
+    }
+
+    func requestNotificationPermission() async -> NotificationPermissionState {
+        let state = await usageAlertManager.requestPermission()
+        notificationPermissionState = state
+        if state.canDeliver {
+            await evaluateUsageAlerts()
+        }
+        return state
+    }
+
+    func refreshNotificationPermissionState() async {
+        notificationPermissionState = await usageAlertManager.permissionState()
     }
 
     func configureSource(baseURLString: String, password: String) async -> Bool {
@@ -99,20 +259,40 @@ final class AppStore: ObservableObject {
                 throw SourceConfigurationError.missingPassword
             }
 
-            pollingTask?.cancel()
-            pollingTask = nil
+            cancelSourcePolling()
             if let source {
                 try source.configure(nextConfiguration)
             } else {
                 source = try CPAUsageKeeperSource(configuration: nextConfiguration)
             }
+            if let quotaRefreshSource {
+                try quotaRefreshSource.configure(nextConfiguration)
+            } else {
+                quotaRefreshSource = try CPAQuotaRefreshSource(configuration: nextConfiguration)
+            }
             sourceConfiguration = nextConfiguration
             sourceConfigurationStore.save(nextConfiguration)
             hasStoredCredential = true
+            quotaConfigurationGeneration += 1
+            quotaRefreshCooldownTask?.cancel()
+            quotaRefreshCooldownTask = nil
+            if quotaRefreshOperationID == nil {
+                quotaRefreshState = .idle
+            }
+            await synchronizeQuotaRefreshCooldown()
 
-            let result = await refreshFromSource()
-            if result.shouldContinuePolling { schedulePolling() }
-            return result == .succeeded
+            let overviewResult = await refreshOverview()
+            let realtimeResult = overviewResult == .succeeded
+                ? await refreshRealtime()
+                : .skipped
+            ensurePolling(
+                overviewResult: overviewResult,
+                realtimeResult: realtimeResult
+            )
+            if overviewResult == .succeeded {
+                scheduleQuotaPolling(performImmediately: true)
+            }
+            return overviewResult == .succeeded
         } catch {
             sourceConnectionState = .failed(error.localizedDescription)
             refreshState = .failed(error.localizedDescription)
@@ -121,19 +301,25 @@ final class AppStore: ObservableObject {
     }
 
     func clearSourceCredential() {
-        pollingTask?.cancel()
-        pollingTask = nil
+        cancelSourcePolling()
         hasConnectedSuccessfully = false
 
         var nextConfiguration = sourceConfiguration
         nextConfiguration.password = ""
         do {
             try source?.configure(nextConfiguration)
+            try quotaRefreshSource?.configure(nextConfiguration)
             sourceConfiguration = nextConfiguration
             sourceConfigurationStore.save(nextConfiguration)
             hasStoredCredential = false
+            quotaConfigurationGeneration += 1
+            quotaRefreshCooldownTask?.cancel()
+            quotaRefreshCooldownTask = nil
             sourceConnectionState = .needsCredential
             refreshState = .idle
+            if quotaRefreshOperationID == nil {
+                quotaRefreshState = .idle
+            }
         } catch {
             sourceConnectionState = .failed(error.localizedDescription)
         }
@@ -179,34 +365,43 @@ final class AppStore: ObservableObject {
 
     private func prepareSource() async {
         hasStoredCredential = !sourceConfiguration.password.isEmpty
+        await synchronizeQuotaRefreshCooldown()
         guard source != nil, hasStoredCredential else {
             sourceConnectionState = .needsCredential
             return
         }
 
-        let result = await refreshFromSource()
-        if result.shouldContinuePolling {
-            schedulePolling()
-        }
+        scheduleQuotaPolling(performImmediately: true)
+        let overviewResult = await refreshOverview()
+        let realtimeResult = overviewResult == .succeeded
+            ? await refreshRealtime()
+            : .skipped
+        ensurePolling(
+            overviewResult: overviewResult,
+            realtimeResult: realtimeResult
+        )
     }
 
-    private func refreshFromSource() async -> SourceRefreshResult {
+    private func refreshOverview() async -> SourceRefreshResult {
         guard let source else {
             refreshState = .idle
             sourceConnectionState = .needsCredential
             return .skipped
         }
-        guard refreshState != .refreshing else { return .skipped }
+        guard !isOverviewRefreshing else { return .skipped }
+        isOverviewRefreshing = true
+        defer { isOverviewRefreshing = false }
         refreshState = .refreshing
         if !hasConnectedSuccessfully {
             sourceConnectionState = .connecting
         }
 
         do {
-            snapshot = try await source.fetch()
+            applyRawSnapshot(rawSnapshot.applying(try await source.fetchOverview()))
             hasConnectedSuccessfully = true
             refreshState = .idle
             sourceConnectionState = .connected(snapshot.updatedAt)
+            await evaluateUsageAlerts()
             return .succeeded
         } catch {
             let message = error.localizedDescription
@@ -222,11 +417,108 @@ final class AppStore: ObservableObject {
         }
     }
 
-    private func schedulePolling() {
-        pollingTask?.cancel()
-        let interval = max(sourceConfiguration.pollingIntervalSeconds, 5)
+    private func refreshRealtime() async -> SourceRefreshResult {
+        guard let source else { return .skipped }
+        guard !isRealtimeRefreshing else { return .skipped }
+        isRealtimeRefreshing = true
+        defer { isRealtimeRefreshing = false }
+        refreshState = .refreshing
 
-        pollingTask = Task { [weak self] in
+        do {
+            applyRawSnapshot(rawSnapshot.applying(try await source.fetchRealtime()))
+            hasConnectedSuccessfully = true
+            refreshState = .idle
+            sourceConnectionState = .connected(snapshot.updatedAt)
+            await evaluateUsageAlerts()
+            return .succeeded
+        } catch {
+            let message = error.localizedDescription
+            refreshState = .failed(message)
+            if isRetryable(error) {
+                sourceConnectionState = .reconnecting(message)
+                return .retryableFailure
+            }
+            sourceConnectionState = .failed(message)
+            return .terminalFailure
+        }
+    }
+
+    private func ensurePolling(
+        overviewResult: SourceRefreshResult,
+        realtimeResult: SourceRefreshResult
+    ) {
+        if overviewResult.shouldContinuePolling, overviewPollingTask == nil {
+            scheduleOverviewPolling()
+        }
+        if realtimeResult.shouldContinuePolling, realtimePollingTask == nil {
+            scheduleRealtimePolling()
+        }
+    }
+
+    private func cancelSourcePolling() {
+        overviewPollingTask?.cancel()
+        realtimePollingTask?.cancel()
+        quotaPollingTask?.cancel()
+        overviewPollingTask = nil
+        realtimePollingTask = nil
+        quotaPollingTask = nil
+    }
+
+    private func scheduleQuotaPolling(performImmediately: Bool) {
+        quotaPollingTask?.cancel()
+        let interval = Self.quotaRefreshIntervalSeconds
+        let generation = quotaConfigurationGeneration
+
+        quotaPollingTask = Task { [weak self] in
+            if performImmediately {
+                await self?.refreshQuotaAutomatically(configurationGeneration: generation)
+            }
+
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(interval))
+                } catch {
+                    return
+                }
+                guard let self, !Task.isCancelled else { return }
+                await self.refreshQuotaAutomatically(configurationGeneration: generation)
+            }
+        }
+    }
+
+    private func refreshQuotaAutomatically(configurationGeneration: Int) async {
+        guard
+            configurationGeneration == quotaConfigurationGeneration,
+            hasConfiguredSource,
+            hasStoredCredential
+        else {
+            return
+        }
+
+        await synchronizeQuotaRefreshCooldown()
+        let cooldown = quotaRefreshCooldownRemainingSeconds
+        if cooldown > 0 {
+            do {
+                try await Task.sleep(for: .seconds(cooldown))
+            } catch {
+                return
+            }
+        }
+
+        guard
+            !Task.isCancelled,
+            configurationGeneration == quotaConfigurationGeneration
+        else {
+            return
+        }
+        await refreshQuota()
+    }
+
+    private func scheduleOverviewPolling() {
+        overviewPollingTask?.cancel()
+        let interval = overviewRefreshIntervalSeconds
+
+        overviewPollingTask = Task { [weak self] in
             var nextDelay = interval
 
             while !Task.isCancelled {
@@ -238,13 +530,42 @@ final class AppStore: ObservableObject {
 
                 guard let self, !Task.isCancelled else { return }
 
-                switch await self.refreshFromSource() {
+                switch await self.refreshOverview() {
+                case .succeeded, .skipped:
+                    nextDelay = interval
+                case .retryableFailure:
+                    nextDelay = min(max(nextDelay * 2, interval), 300)
+                case .terminalFailure:
+                    self.overviewPollingTask = nil
+                    return
+                }
+            }
+        }
+    }
+
+    private func scheduleRealtimePolling() {
+        realtimePollingTask?.cancel()
+        let interval = realtimeRefreshIntervalSeconds
+
+        realtimePollingTask = Task { [weak self] in
+            var nextDelay = interval
+
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(nextDelay))
+                } catch {
+                    return
+                }
+
+                guard let self, !Task.isCancelled else { return }
+
+                switch await self.refreshRealtime() {
                 case .succeeded, .skipped:
                     nextDelay = interval
                 case .retryableFailure:
                     nextDelay = min(max(nextDelay * 2, interval), 60)
                 case .terminalFailure:
-                    self.pollingTask = nil
+                    self.realtimePollingTask = nil
                     return
                 }
             }
@@ -277,6 +598,84 @@ final class AppStore: ObservableObject {
 
     private func refreshSystemMetrics() async {
         systemSnapshot = await systemMetricsMonitor.sample()
+    }
+
+    private func applyRawSnapshot(_ nextRawSnapshot: MetricSnapshot) {
+        rawSnapshot = nextRawSnapshot
+
+        let today = DailyUsageCounter.dayIdentifier()
+        if let reset = dailyUsageCounterReset, reset.dayIdentifier != today {
+            dailyUsageCounterReset = nil
+            dailyUsageCounterResetStore.clear()
+        } else if let reset = dailyUsageCounterReset,
+                  let rebasedReset = DailyUsageCounter.automaticallyRebasedReset(
+                      rawSnapshot: nextRawSnapshot,
+                      reset: reset,
+                      at: Date()
+                  ) {
+            dailyUsageCounterReset = rebasedReset
+            dailyUsageCounterResetStore.save(rebasedReset)
+        }
+
+        snapshot = dailyUsageCounterReset.map {
+            DailyUsageCounter.adjustedSnapshot(nextRawSnapshot, using: $0)
+        } ?? nextRawSnapshot
+    }
+
+    private func rebaseDailyUsageCounter(using rawSnapshot: MetricSnapshot, at date: Date) {
+        let reset = DailyUsageCounter.reset(for: rawSnapshot, at: date)
+        dailyUsageCounterReset = reset
+        dailyUsageCounterResetStore.save(reset)
+        snapshot = DailyUsageCounter.adjustedSnapshot(rawSnapshot, using: reset, at: date)
+    }
+
+    private func synchronizeQuotaRefreshCooldown() async {
+        guard let quotaRefreshSource else {
+            quotaRefreshCooldownRemainingSeconds = 0
+            quotaRefreshCooldownTask?.cancel()
+            quotaRefreshCooldownTask = nil
+            return
+        }
+
+        let generation = quotaConfigurationGeneration
+        let remaining = await quotaRefreshSource.cooldownRemainingSeconds()
+        guard generation == quotaConfigurationGeneration else { return }
+        quotaRefreshCooldownRemainingSeconds = remaining
+        guard quotaRefreshCooldownRemainingSeconds > 0 else {
+            quotaRefreshCooldownTask?.cancel()
+            quotaRefreshCooldownTask = nil
+            return
+        }
+        scheduleQuotaRefreshCooldownCountdownIfNeeded()
+    }
+
+    private func scheduleQuotaRefreshCooldownCountdownIfNeeded() {
+        guard quotaRefreshCooldownTask == nil else { return }
+        let generation = quotaConfigurationGeneration
+        quotaRefreshCooldownTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(1))
+                } catch {
+                    return
+                }
+                guard let self, let source = self.quotaRefreshSource, !Task.isCancelled else {
+                    return
+                }
+                let remaining = await source.cooldownRemainingSeconds()
+                guard
+                    !Task.isCancelled,
+                    self.quotaConfigurationGeneration == generation
+                else {
+                    return
+                }
+                self.quotaRefreshCooldownRemainingSeconds = remaining
+                if remaining == 0 {
+                    self.quotaRefreshCooldownTask = nil
+                    return
+                }
+            }
+        }
     }
 
     private func scheduleRotation() {
@@ -313,9 +712,19 @@ final class AppStore: ObservableObject {
         return switch sourceError {
         case .network, .rateLimited, .serverUnavailable:
             true
-        case .authenticationRequired, .invalidResponse, .responseTooLarge, .decoding:
+        case .authenticationRequired,
+             .invalidResponse,
+             .responseTooLarge,
+             .decoding:
             false
         }
+    }
+
+    private func evaluateUsageAlerts() async {
+        await usageAlertManager.evaluate(
+            snapshot: snapshot,
+            configuration: alertConfiguration
+        )
     }
 
     func setEnabled(_ isEnabled: Bool, for kind: MetricKind) {

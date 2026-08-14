@@ -40,6 +40,34 @@ struct ConfigurationStore {
     }
 }
 
+struct DailyUsageCounterResetStore {
+    private let defaults: UserDefaults
+    private let key = "littlewatch.daily-usage-counter.reset.v1"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func load() -> DailyUsageCounterReset? {
+        guard
+            let data = defaults.data(forKey: key),
+            let reset = try? JSONDecoder().decode(DailyUsageCounterReset.self, from: data)
+        else {
+            return nil
+        }
+        return reset
+    }
+
+    func save(_ reset: DailyUsageCounterReset) {
+        guard let data = try? JSONEncoder().encode(reset) else { return }
+        defaults.set(data, forKey: key)
+    }
+
+    func clear() {
+        defaults.removeObject(forKey: key)
+    }
+}
+
 struct MenuBarFormatter {
     func title(
         for snapshot: MetricSnapshot,
