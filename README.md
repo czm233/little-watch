@@ -52,7 +52,7 @@ xcodebuild -project LittleWatch.xcodeproj -scheme LittleWatch -configuration Deb
 
 ## 自动构建与发布
 
-- 推送到 `main`：自动运行测试并生成保留 14 天的通用 DMG 构建。
+- 推送到 `main`：自动运行测试，不生成 DMG。
 - 推送 `vX.Y.Z` 标签：自动测试、打包 DMG，并创建公开的 GitHub Release。
 
 正式对外分发前仍建议配置 Developer ID 签名与 Apple 公证，以消除 Gatekeeper 警告。
