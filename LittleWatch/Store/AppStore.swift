@@ -29,6 +29,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var quotaRefreshCooldownRemainingSeconds = 0
     @Published private(set) var quotaRemainingPercent: Double?
     @Published private(set) var quotaLastUpdatedAt: Date?
+    @Published private(set) var quotaResetAt: Date?
     @Published private(set) var sourceConnectionState: SourceConnectionState = .needsCredential
     @Published private(set) var hasStoredCredential = false
     @Published private(set) var sourceConfiguration: SourceConfiguration
@@ -166,8 +167,13 @@ final class AppStore: ObservableObject {
         do {
             let result = try await quotaRefreshSource.refreshHighestPriorityCodexQuota()
             if quotaConfigurationGeneration == configurationGeneration {
-                quotaRemainingPercent = result.quota.weeklyRemainingPercent
+                let weeklyWindow = result.quota.weeklyPrimaryWindow
+                quotaRemainingPercent = weeklyWindow?.remainingPercent
                 quotaLastUpdatedAt = result.refreshedAt
+                quotaResetAt = weeklyWindow?.resetDate
+                    ?? weeklyWindow?.resetAfterSeconds.map {
+                        result.refreshedAt.addingTimeInterval(TimeInterval($0))
+                    }
                 quotaRefreshState = .succeeded(result.refreshedAt)
             }
         } catch is CancellationError {
@@ -231,6 +237,36 @@ final class AppStore: ObservableObject {
     var quotaLastUpdatedText: String {
         guard let quotaLastUpdatedAt else { return "尚未更新" }
         return "最后更新 \(quotaLastUpdatedAt.formatted(date: .omitted, time: .shortened))"
+    }
+
+    var quotaResetDateText: String {
+        guard let quotaResetAt else { return "未知" }
+        let components = Calendar.current.dateComponents(
+            [.month, .day, .hour, .minute],
+            from: quotaResetAt
+        )
+        guard
+            let month = components.month,
+            let day = components.day,
+            let hour = components.hour,
+            let minute = components.minute
+        else {
+            return "未知"
+        }
+        return String(format: "%02d/%02d %02d:%02d", month, day, hour, minute)
+    }
+
+    var quotaResetRelativeText: String {
+        guard let quotaResetAt else { return "" }
+        let remainingSeconds = max(0, Int(quotaResetAt.timeIntervalSinceNow.rounded()))
+        if remainingSeconds == 0 { return "即将重置" }
+
+        let days = remainingSeconds / 86_400
+        let hours = (remainingSeconds % 86_400) / 3_600
+        let minutes = (remainingSeconds % 3_600) / 60
+        if days > 0 { return "约 \(days) 天 \(hours) 小时后" }
+        if hours > 0 { return "约 \(hours) 小时 \(minutes) 分钟后" }
+        return "约 \(max(minutes, 1)) 分钟后"
     }
 
     func requestNotificationPermission() async -> NotificationPermissionState {

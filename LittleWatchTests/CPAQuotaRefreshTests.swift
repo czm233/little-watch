@@ -121,6 +121,13 @@ final class CPAQuotaRefreshTests: XCTestCase {
         XCTAssertEqual(payload.weeklyRemainingPercent, 99)
         XCTAssertEqual(payload.items.first?.remainingPercent, 99)
         XCTAssertEqual(payload.items.dropFirst().first?.remainingPercent, 100)
+
+        let resetDate = try XCTUnwrap(payload.weeklyPrimaryWindow?.resetDate)
+        let expectedResetDate = try XCTUnwrap(
+            ISO8601DateFormatter().date(from: "2026-08-20T11:32:23+08:00")
+        )
+        XCTAssertEqual(resetDate, expectedResetDate)
+        XCTAssertEqual(payload.weeklyPrimaryWindow?.resetAfterSeconds, 594222)
     }
 
     func testImmediateSecondRefreshIsBlockedBeforeNetwork() async throws {

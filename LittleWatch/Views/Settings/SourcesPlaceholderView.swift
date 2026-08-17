@@ -245,11 +245,16 @@ struct SourcesPlaceholderView: View {
                     } ?? "—",
                     color: LittleWatchTheme.signal
                 )
-                Text(store.quotaRemainingPercent == nil
-                    ? "连接后自动获取，之后每 5 分钟更新"
-                    : "每 5 分钟自动更新 · \(store.quotaLastUpdatedText)")
-                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(LittleWatchTheme.secondaryText)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(store.quotaRemainingPercent == nil
+                        ? "连接后自动获取，之后每 5 分钟更新"
+                        : "每 5 分钟自动更新 · \(store.quotaLastUpdatedText)")
+                    if store.quotaRemainingPercent != nil {
+                        Text("下次额度重置：\(store.quotaResetDateText) · \(store.quotaResetRelativeText)")
+                    }
+                }
+                .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                .foregroundStyle(LittleWatchTheme.secondaryText)
                 Spacer()
             }
             .padding(.horizontal, 4)

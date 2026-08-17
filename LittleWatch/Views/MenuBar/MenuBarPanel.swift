@@ -208,9 +208,16 @@ struct MenuBarPanel: View {
 
             Spacer()
 
-            Text(store.quotaLastUpdatedText)
-                .font(.system(size: 9, weight: .medium, design: .rounded))
-                .foregroundStyle(LittleWatchTheme.secondaryText)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text("重置 \(store.quotaResetDateText)")
+                if !store.quotaResetRelativeText.isEmpty {
+                    Text(store.quotaResetRelativeText)
+                }
+                Text(store.quotaLastUpdatedText)
+            }
+            .font(.system(size: 9, weight: .medium, design: .rounded))
+            .foregroundStyle(LittleWatchTheme.secondaryText)
+            .multilineTextAlignment(.trailing)
         }
         .padding(12)
         .background(LittleWatchTheme.surface)

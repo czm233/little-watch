@@ -246,6 +246,14 @@ struct CPAQuotaItem: Decodable, Equatable, Sendable {
         return min(max(100 - usedPercent, 0), 100)
     }
 
+    /// CPA sends the next quota reset as an ISO-8601 timestamp, for example
+    /// 2026-08-20T11:32:23+08:00. Keep the raw value for diagnostics while
+    /// exposing a Date for the UI and any future scheduling logic.
+    var resetDate: Date? {
+        guard let resetAt else { return nil }
+        return CPAQuotaDateParser.date(from: resetAt)
+    }
+
     enum CodingKeys: String, CodingKey {
         case key
         case label
@@ -277,6 +285,14 @@ struct CPAQuotaItem: Decodable, Equatable, Sendable {
         resetAfterSeconds = try container.decodeFlexibleIntIfPresent(forKey: .resetAfterSeconds)
         windowUsageTokens = try container.decodeFlexibleIntIfPresent(forKey: .windowUsageTokens)
         windowUsageCost = try container.decodeFlexibleDoubleIfPresent(forKey: .windowUsageCost)
+    }
+}
+
+enum CPAQuotaDateParser {
+    static func date(from value: String) -> Date? {
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: value) ?? ISO8601DateFormatter().date(from: value)
     }
 }
 
@@ -782,9 +798,7 @@ actor CPAQuotaRefreshClient {
     }
 
     private static func parseServerDate(_ value: String) -> Date? {
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return fractional.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+        CPAQuotaDateParser.date(from: value)
     }
 
     private static func rejectionMessage(_ code: String) -> String {
