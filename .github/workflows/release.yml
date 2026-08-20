@@ -13,10 +13,19 @@ jobs:
     name: Build and publish Release
     runs-on: macos-15
     timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Configure pinned toolchain
+        run: |
+          test "$(xcodebuild -version | awk 'NR == 1 { print $2 }')" = "16.4"
+          xcodebuild -version
+          mkdir -p "$RUNNER_TEMP/xcresults"
+          echo "MACOS_DESTINATION=platform=macOS,arch=$(uname -m)" >> "$GITHUB_ENV"
 
       - name: Validate version tag
         run: |
@@ -26,14 +35,27 @@ jobs:
           fi
 
       - name: Run tests
+        id: tests
         run: |
           xcodebuild -quiet \
             -project LittleWatch.xcodeproj \
             -scheme LittleWatch \
             -configuration Debug \
+            -destination "$MACOS_DESTINATION" \
             -derivedDataPath "$RUNNER_TEMP/LittleWatchTests" \
+            -resultBundlePath "$RUNNER_TEMP/xcresults/Tests.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
             test
+
+      - name: Upload failed test result
+        if: ${{ !cancelled() && steps.tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: LittleWatch-release-tests-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/xcresults/Tests.xcresult
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Build universal Release package
         env:

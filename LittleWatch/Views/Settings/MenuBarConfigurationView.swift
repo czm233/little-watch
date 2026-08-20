@@ -395,7 +395,10 @@ private struct DisplayFieldRow: View {
             .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 5) {
-                TextField("字段名称", text: Binding(get: { field.label }, set: onLabelChange))
+                TextField(
+                    "字段名称",
+                    text: Binding(get: { field.label }, set: { onLabelChange($0) })
+                )
                     .textFieldStyle(.plain)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(LittleWatchTheme.primaryText)
@@ -424,7 +427,10 @@ private struct DisplayFieldRow: View {
             .buttonStyle(.borderless)
             .foregroundStyle(LittleWatchTheme.secondaryText)
 
-            Toggle("", isOn: Binding(get: { field.isEnabled }, set: onEnabledChange))
+            Toggle(
+                "",
+                isOn: Binding(get: { field.isEnabled }, set: { onEnabledChange($0) })
+            )
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)

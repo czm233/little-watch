@@ -26,12 +26,14 @@ xcodebuild \
     -project "${project_root}/LittleWatch.xcodeproj" \
     -scheme LittleWatch \
     -configuration Release \
+    -destination "generic/platform=macOS" \
     -derivedDataPath "${derived_data_path}" \
     ARCHS="arm64 x86_64" \
     ONLY_ACTIVE_ARCH=NO \
     MARKETING_VERSION="${version}" \
     CURRENT_PROJECT_VERSION="${build_number}" \
     CODE_SIGNING_ALLOWED=NO \
+    SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
     clean build
 
 app_path="${derived_data_path}/Build/Products/Release/LittleWatch.app"
