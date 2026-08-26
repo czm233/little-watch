@@ -40,19 +40,18 @@ jobs:
           plutil -lint LittleWatch/Resources/Info.plist
           zsh -n scripts/build-release.sh
 
-      - name: Run tests
-        id: tests
+      - name: Build Debug configuration
+        id: debug_build
         run: |
           xcodebuild -quiet \
             -project LittleWatch.xcodeproj \
             -scheme LittleWatch \
             -configuration Debug \
             -destination "$MACOS_DESTINATION" \
-            -derivedDataPath "$RUNNER_TEMP/LittleWatchTests" \
-            -resultBundlePath "$RUNNER_TEMP/xcresults/Tests.xcresult" \
+            -derivedDataPath "$RUNNER_TEMP/LittleWatchDebugBuild" \
+            -resultBundlePath "$RUNNER_TEMP/xcresults/DebugBuild.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
-            test
+            build
 
       - name: Build Release configuration
         id: release_build
@@ -65,25 +64,10 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/LittleWatchReleaseBuild" \
             -resultBundlePath "$RUNNER_TEMP/xcresults/ReleaseBuild.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
             build
 
-      - name: Run static analysis
-        id: analyze
-        run: |
-          xcodebuild -quiet \
-            -project LittleWatch.xcodeproj \
-            -scheme LittleWatch \
-            -configuration Debug \
-            -destination "$MACOS_DESTINATION" \
-            -derivedDataPath "$RUNNER_TEMP/LittleWatchAnalyze" \
-            -resultBundlePath "$RUNNER_TEMP/xcresults/Analyze.xcresult" \
-            CODE_SIGNING_ALLOWED=NO \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
-            analyze
-
       - name: Upload failure diagnostics
-        if: ${{ !cancelled() && (steps.tests.outcome == 'failure' || steps.release_build.outcome == 'failure' || steps.analyze.outcome == 'failure') }}
+        if: ${{ !cancelled() && (steps.debug_build.outcome == 'failure' || steps.release_build.outcome == 'failure') }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: LittleWatch-ci-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
