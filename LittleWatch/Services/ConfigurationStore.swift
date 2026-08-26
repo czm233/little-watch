@@ -120,9 +120,8 @@ struct MenuBarFormatter {
     }
 
     func formatDiskFree(_ bytes: Int64) -> String {
-        let gigabytes = Double(max(bytes, 0)) / 1_073_741_824
-        let value = gigabytes >= 100 ? String(format: "%.0f", gigabytes) : String(format: "%.1f", gigabytes).replacingOccurrences(of: ".0", with: "")
-        return "FREE \(value)G"
+        let gigabytes = Double(max(bytes, 0)) / 1_000_000_000
+        return String(format: "FREE %.2f GB", gigabytes)
     }
 
     func formatCost(_ value: Double, precision: Int) -> String {

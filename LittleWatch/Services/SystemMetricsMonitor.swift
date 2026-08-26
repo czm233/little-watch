@@ -4,20 +4,29 @@ import Foundation
 actor SystemMetricsMonitor {
     static let diskRefreshInterval: TimeInterval = 5 * 60
 
+    private let diskSampler: @Sendable () -> (usagePercent: Double, freeBytes: Int64)?
     private var previousCPUTicks: [UInt64]?
     private var latest = SystemMetricsSnapshot.empty
     private var lastDiskSampleAt: Date?
 
-    func sample(at now: Date = Date()) -> SystemMetricsSnapshot {
+    init(
+        diskSampler: @escaping @Sendable () -> (usagePercent: Double, freeBytes: Int64)? = {
+            SystemMetricsMonitor.sampleDisk()
+        }
+    ) {
+        self.diskSampler = diskSampler
+    }
+
+    func sample(at now: Date = Date(), forceDiskRefresh: Bool = false) -> SystemMetricsSnapshot {
         let cpu = sampleCPU() ?? latest.cpuUsagePercent
         let memory = sampleMemory() ?? latest.memoryUsagePercent
-        let shouldRefreshDisk = lastDiskSampleAt.map {
+        let shouldRefreshDisk = forceDiskRefresh || lastDiskSampleAt.map {
             now.timeIntervalSince($0) >= Self.diskRefreshInterval
         } ?? true
         let disk: (usagePercent: Double, freeBytes: Int64)?
         if shouldRefreshDisk {
             lastDiskSampleAt = now
-            disk = sampleDisk()
+            disk = diskSampler()
         } else {
             disk = nil
         }
@@ -97,7 +106,7 @@ actor SystemMetricsMonitor {
         return min(max(usedPages * pageSize / totalBytes * 100, 0), 100)
     }
 
-    private func sampleDisk() -> (usagePercent: Double, freeBytes: Int64)? {
+    private static func sampleDisk() -> (usagePercent: Double, freeBytes: Int64)? {
         let process = Process()
         let output = Pipe()
         process.executableURL = URL(fileURLWithPath: "/bin/df")
@@ -111,10 +120,21 @@ actor SystemMetricsMonitor {
             guard process.terminationStatus == 0 else { return nil }
             let data = output.fileHandleForReading.readDataToEndOfFile()
             guard let text = String(data: data, encoding: .utf8) else { return nil }
-            return Self.parseDiskUsage(output: text)
+            guard let parsed = Self.parseDiskUsage(output: text) else { return nil }
+            return (
+                usagePercent: parsed.usagePercent,
+                freeBytes: Self.importantAvailableCapacity() ?? parsed.freeBytes
+            )
         } catch {
             return nil
         }
+    }
+
+    private static func importantAvailableCapacity() -> Int64? {
+        let url = URL(fileURLWithPath: "/")
+        let keys: Set<URLResourceKey> = [.volumeAvailableCapacityForImportantUsageKey]
+        guard let values = try? url.resourceValues(forKeys: keys) else { return nil }
+        return values.volumeAvailableCapacityForImportantUsage
     }
 
     nonisolated static func parseDiskUsage(output: String) -> (usagePercent: Double, freeBytes: Int64)? {

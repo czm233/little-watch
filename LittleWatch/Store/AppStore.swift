@@ -131,7 +131,7 @@ final class AppStore: ObservableObject {
     }
 
     func refresh() async {
-        await refreshSystemMetrics()
+        await refreshSystemMetrics(forceDiskRefresh: true)
         let overviewResult = await refreshOverview()
         let realtimeResult = await refreshRealtime()
         ensurePolling(
@@ -632,8 +632,8 @@ final class AppStore: ObservableObject {
         }
     }
 
-    private func refreshSystemMetrics() async {
-        systemSnapshot = await systemMetricsMonitor.sample()
+    private func refreshSystemMetrics(forceDiskRefresh: Bool = false) async {
+        systemSnapshot = await systemMetricsMonitor.sample(forceDiskRefresh: forceDiskRefresh)
     }
 
     private func applyRawSnapshot(_ nextRawSnapshot: MetricSnapshot) {

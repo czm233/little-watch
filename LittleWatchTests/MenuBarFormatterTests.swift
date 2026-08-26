@@ -79,7 +79,14 @@ final class MenuBarFormatterTests: XCTestCase {
             configuration: configuration
         )
 
-        XCTAssertEqual(title, "$12.84 | MEM 80% | FREE 18.6G")
+        XCTAssertEqual(title, "$12.84 | MEM 80% | FREE 20.00 GB")
+    }
+
+    func testDiskFreeUsesDecimalGigabytes() {
+        XCTAssertEqual(
+            MenuBarFormatter().formatDiskFree(16_920_000_000),
+            "FREE 16.92 GB"
+        )
     }
 
     func testRotatingTitleUsesEnabledFieldOrder() {
@@ -304,6 +311,36 @@ final class CPAUsageModelsTests: XCTestCase {
 
         XCTAssertEqual(result.usagePercent, 39)
         XCTAssertEqual(result.freeBytes, 19_407_392 * 1024)
+    }
+
+    func testSystemMetricsMonitorForceRefreshBypassesDiskInterval() async {
+        let sampler = DiskSampleSequence([
+            (usagePercent: 39, freeBytes: 19_407_392 * 1024),
+            (usagePercent: 32, freeBytes: 35_000_000_000),
+            (usagePercent: 28, freeBytes: 42_000_000_000)
+        ])
+        let monitor = SystemMetricsMonitor(diskSampler: { sampler.next() })
+        let firstSampleAt = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let first = await monitor.sample(at: firstSampleAt)
+        let automatic = await monitor.sample(at: firstSampleAt.addingTimeInterval(1))
+        let forced = await monitor.sample(
+            at: firstSampleAt.addingTimeInterval(1),
+            forceDiskRefresh: true
+        )
+        let afterAutomaticInterval = await monitor.sample(
+            at: firstSampleAt.addingTimeInterval(SystemMetricsMonitor.diskRefreshInterval + 1)
+        )
+
+        XCTAssertEqual(first.diskUsagePercent, 39)
+        XCTAssertEqual(first.diskFreeBytes, 19_407_392 * 1024)
+        XCTAssertEqual(automatic.diskUsagePercent, first.diskUsagePercent)
+        XCTAssertEqual(automatic.diskFreeBytes, first.diskFreeBytes)
+        XCTAssertEqual(forced.diskUsagePercent, 32)
+        XCTAssertEqual(forced.diskFreeBytes, 35_000_000_000)
+        XCTAssertEqual(afterAutomaticInterval.diskUsagePercent, 28)
+        XCTAssertEqual(afterAutomaticInterval.diskFreeBytes, 42_000_000_000)
+        XCTAssertEqual(sampler.numberOfCalls(), 3)
     }
 
     func testOverviewDecodesFlexibleNumbers() throws {
@@ -672,5 +709,30 @@ private final class SlowUsageNotificationService: UsageNotificationDelivering {
     func deliver(_ alert: UsageAlertDelivery) async throws {
         deliveries.append(alert)
         try await Task.sleep(for: .milliseconds(50))
+    }
+}
+
+private final class DiskSampleSequence: @unchecked Sendable {
+    private let lock = NSLock()
+    private var samples: [(usagePercent: Double, freeBytes: Int64)]
+    private var calls = 0
+
+    init(_ samples: [(usagePercent: Double, freeBytes: Int64)]) {
+        self.samples = samples
+    }
+
+    func next() -> (usagePercent: Double, freeBytes: Int64)? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !samples.isEmpty else { return nil }
+        let sample = samples[min(calls, samples.count - 1)]
+        calls += 1
+        return sample
+    }
+
+    func numberOfCalls() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return calls
     }
 }
