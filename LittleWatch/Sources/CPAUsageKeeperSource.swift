@@ -59,35 +59,37 @@ actor CPAUsageKeeperClient {
 
     func fetchOverview(
         password: String,
-        overviewRange: String
+        overviewRange: String,
+        apiKeyID: String = ""
     ) async throws -> MetricOverviewSnapshot {
         if !authenticated {
             try await login(password: password)
         }
 
         do {
-            return try await loadOverview(overviewRange: overviewRange)
+            return try await loadOverview(overviewRange: overviewRange, apiKeyID: apiKeyID)
         } catch CPAUsageKeeperError.authenticationRequired {
             clearSession()
             try await login(password: password)
-            return try await loadOverview(overviewRange: overviewRange)
+            return try await loadOverview(overviewRange: overviewRange, apiKeyID: apiKeyID)
         }
     }
 
     func fetchRealtime(
         password: String,
-        realtimeWindow: String
+        realtimeWindow: String,
+        apiKeyID: String = ""
     ) async throws -> MetricRealtimeSnapshot {
         if !authenticated {
             try await login(password: password)
         }
 
         do {
-            return try await loadRealtime(realtimeWindow: realtimeWindow)
+            return try await loadRealtime(realtimeWindow: realtimeWindow, apiKeyID: apiKeyID)
         } catch CPAUsageKeeperError.authenticationRequired {
             clearSession()
             try await login(password: password)
-            return try await loadRealtime(realtimeWindow: realtimeWindow)
+            return try await loadRealtime(realtimeWindow: realtimeWindow, apiKeyID: apiKeyID)
         }
     }
 
@@ -108,10 +110,11 @@ actor CPAUsageKeeperClient {
         authenticated = true
     }
 
-    private func loadOverview(overviewRange: String) async throws -> MetricOverviewSnapshot {
+    private func loadOverview(overviewRange: String, apiKeyID: String) async throws -> MetricOverviewSnapshot {
+        let resolvedAPIKeyID = try await resolveAPIKeyID(apiKeyID)
         let overview: CPAUsageOverviewResponse = try await get(
             path: "api/v1/usage/overview",
-            query: [URLQueryItem(name: "range", value: overviewRange)]
+            query: usageQuery([URLQueryItem(name: "range", value: overviewRange)], apiKeyID: resolvedAPIKeyID)
         )
         let now = Date()
 
@@ -134,10 +137,11 @@ actor CPAUsageKeeperClient {
         )
     }
 
-    private func loadRealtime(realtimeWindow: String) async throws -> MetricRealtimeSnapshot {
+    private func loadRealtime(realtimeWindow: String, apiKeyID: String) async throws -> MetricRealtimeSnapshot {
+        let resolvedAPIKeyID = try await resolveAPIKeyID(apiKeyID)
         let response: CPAUsageRealtimeResponse = try await get(
             path: "api/v1/usage/overview/realtime",
-            query: [URLQueryItem(name: "window", value: realtimeWindow)]
+            query: usageQuery([URLQueryItem(name: "window", value: realtimeWindow)], apiKeyID: resolvedAPIKeyID)
         )
         let now = Date()
         let tpmTrend = ratePoints(
@@ -160,6 +164,27 @@ actor CPAUsageKeeperClient {
                 requestsPerMinute: rpmTrend
             )
         )
+    }
+
+    private func usageQuery(_ query: [URLQueryItem], apiKeyID: String) -> [URLQueryItem] {
+        let trimmed = apiKeyID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return query }
+        return query + [URLQueryItem(name: "api_key_id", value: trimmed)]
+    }
+
+    private func resolveAPIKeyID(_ selector: String) async throws -> String {
+        let trimmed = selector.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        if trimmed.allSatisfy(\.isNumber) { return trimmed }
+
+        let response: CPAAPIKeySettingsListResponse = try await get(
+            path: "api/v1/usage/api-keys/settings",
+            query: []
+        )
+        guard let match = response.items.first(where: { $0.apiKey == trimmed }) else {
+            throw CPAUsageKeeperError.decoding("找不到对应的 API Key，请检查输入是否为完整 Key 或数字 ID")
+        }
+        return match.id
     }
 
     private func ratePoints(
@@ -316,7 +341,8 @@ final class CPAUsageKeeperSource: MetricSource {
 
         return try await client.fetchOverview(
             password: configuration.password,
-            overviewRange: configuration.overviewRange
+            overviewRange: configuration.overviewRange,
+            apiKeyID: configuration.apiKeyID
         )
     }
 
@@ -327,7 +353,8 @@ final class CPAUsageKeeperSource: MetricSource {
 
         return try await client.fetchRealtime(
             password: configuration.password,
-            realtimeWindow: configuration.realtimeWindow
+            realtimeWindow: configuration.realtimeWindow,
+            apiKeyID: configuration.apiKeyID
         )
     }
 

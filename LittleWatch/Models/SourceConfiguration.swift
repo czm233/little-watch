@@ -6,13 +6,16 @@ struct SourceConfiguration: Codable, Equatable, Sendable {
     var pollingIntervalSeconds: Int
     var overviewRange: String
     var realtimeWindow: String
+    /// Optional CPA Usage Keeper API key database id. Empty keeps the all-keys view.
+    var apiKeyID: String
 
     static let `default` = SourceConfiguration(
         baseURLString: "",
         password: "",
         pollingIntervalSeconds: 5,
         overviewRange: "today",
-        realtimeWindow: "60m"
+        realtimeWindow: "60m",
+        apiKeyID: ""
     )
 
     init(
@@ -20,13 +23,15 @@ struct SourceConfiguration: Codable, Equatable, Sendable {
         password: String,
         pollingIntervalSeconds: Int,
         overviewRange: String,
-        realtimeWindow: String
+        realtimeWindow: String,
+        apiKeyID: String = ""
     ) {
         self.baseURLString = baseURLString
         self.password = password
         self.pollingIntervalSeconds = pollingIntervalSeconds
         self.overviewRange = overviewRange
         self.realtimeWindow = realtimeWindow
+        self.apiKeyID = apiKeyID
     }
 
     init(from decoder: Decoder) throws {
@@ -36,6 +41,7 @@ struct SourceConfiguration: Codable, Equatable, Sendable {
         pollingIntervalSeconds = try container.decode(Int.self, forKey: .pollingIntervalSeconds)
         overviewRange = try container.decode(String.self, forKey: .overviewRange)
         realtimeWindow = try container.decode(String.self, forKey: .realtimeWindow)
+        apiKeyID = try container.decodeIfPresent(String.self, forKey: .apiKeyID) ?? ""
     }
 
     func validatedBaseURL() throws -> URL {

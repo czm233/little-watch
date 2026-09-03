@@ -6,6 +6,7 @@ struct SourcesPlaceholderView: View {
     let onOnboardingCompleted: () -> Void
     @State private var baseURLString = ""
     @State private var password = ""
+    @State private var apiKeyID = ""
     @State private var isSaving = false
     @FocusState private var focusedField: Field?
 
@@ -49,6 +50,7 @@ struct SourcesPlaceholderView: View {
         .onAppear {
             baseURLString = store.sourceConfiguration.baseURLString
             password = store.sourceConfiguration.password
+            apiKeyID = store.sourceConfiguration.apiKeyID
 
             if showsOnboarding {
                 Task { @MainActor in
@@ -301,7 +303,7 @@ struct SourcesPlaceholderView: View {
                     Text("连接配置")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(LittleWatchTheme.primaryText)
-                    Text("密码保存在 Little Watch 本地配置")
+                    Text("密码和个人 Key 筛选保存在 Little Watch 本地配置")
                         .font(.system(size: 10, weight: .medium, design: .rounded))
                         .foregroundStyle(LittleWatchTheme.secondaryText)
                 }
@@ -338,6 +340,20 @@ struct SourcesPlaceholderView: View {
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .multilineTextAlignment(.trailing)
                     .focused($focusedField, equals: .password)
+                    .frame(maxWidth: 310)
+            }
+
+            Divider().overlay(LittleWatchTheme.hairline).padding(.leading, 58)
+
+            inputRow(
+                title: "个人 API Key",
+                detail: "填写数字 ID 或完整 Key；留空则统计全部",
+                symbol: "key.fill"
+            ) {
+                TextField("API Key ID 或完整 Key", text: $apiKeyID)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .multilineTextAlignment(.trailing)
                     .frame(maxWidth: 310)
             }
 
@@ -479,7 +495,8 @@ struct SourcesPlaceholderView: View {
             isSaving = true
             let didConnect = await store.configureSource(
                 baseURLString: baseURLString,
-                password: password
+                password: password,
+                apiKeyID: apiKeyID
             )
             isSaving = false
 

@@ -6,6 +6,20 @@ struct CPAUsageOverviewResponse: Decodable, Equatable, Sendable {
     let timezone: String?
 }
 
+struct CPAAPIKeySettingsResponse: Decodable, Equatable, Sendable {
+    let id: String
+    let apiKey: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case apiKey = "apiKey"
+    }
+}
+
+struct CPAAPIKeySettingsListResponse: Decodable, Equatable, Sendable {
+    let items: [CPAAPIKeySettingsResponse]
+}
+
 struct CPAUsageTotals: Decodable, Equatable, Sendable {
     let totalRequests: Int?
     let totalTokens: Int?

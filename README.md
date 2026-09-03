@@ -75,6 +75,7 @@ LittleWatch/
 
 - `overview?range=today` 提供今日累计金额与 Token，是顶部栏的主数据。
 - `overview/realtime?window=60m` 提供最近 60 分钟的 TPM/RPM 等实时活跃度。
+- 如果 CPA Usage Keeper 由多人共用，可在 Little Watch 的“数据来源”里填写个人 API Key 的数字 ID 或完整 Key；应用会解析后在上述两个请求中附加 `api_key_id`，只统计该 Key。留空则统计全部 Key。
 - 登录失效后会自动重新登录一次。
 - 密码保存在当前 macOS 用户的 Little Watch `UserDefaults` 中，不访问 macOS Keychain，也不会进入代码仓库。该本地配置未加密，请只在受信任的 Mac 账户中使用。
 

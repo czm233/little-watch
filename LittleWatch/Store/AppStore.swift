@@ -282,9 +282,10 @@ final class AppStore: ObservableObject {
         notificationPermissionState = await usageAlertManager.permissionState()
     }
 
-    func configureSource(baseURLString: String, password: String) async -> Bool {
+    func configureSource(baseURLString: String, password: String, apiKeyID: String = "") async -> Bool {
         var nextConfiguration = sourceConfiguration
         nextConfiguration.baseURLString = baseURLString
+        nextConfiguration.apiKeyID = apiKeyID.trimmingCharacters(in: .whitespacesAndNewlines)
 
         do {
             _ = try nextConfiguration.validatedBaseURL()
