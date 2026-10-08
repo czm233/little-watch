@@ -125,9 +125,19 @@ final class AppStore: ObservableObject {
         formatter.title(
             for: snapshot,
             systemSnapshot: systemSnapshot,
-            configuration: configuration,
+            configuration: titleConfiguration,
             rotationIndex: rotationIndex
         )
+    }
+
+    // 未配置数据源时只保留本机指标，避免标题长期显示零值消费/Token。
+    private var titleConfiguration: AppConfiguration {
+        guard source != nil else {
+            var config = configuration
+            config.fields = config.fields.filter(\.kind.isLocalMetric)
+            return config
+        }
+        return configuration
     }
 
     func refresh() async {
@@ -282,6 +292,7 @@ final class AppStore: ObservableObject {
         notificationPermissionState = await usageAlertManager.permissionState()
     }
 
+    @discardableResult
     func configureSource(baseURLString: String, password: String, apiKeyID: String = "") async -> Bool {
         var nextConfiguration = sourceConfiguration
         nextConfiguration.baseURLString = baseURLString

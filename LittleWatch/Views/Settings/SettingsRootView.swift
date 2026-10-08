@@ -1,43 +1,8 @@
 import SwiftUI
 
-@MainActor
-enum SourceSetupOnboarding {
-    static let completionKey = "littlewatch.onboarding.source-setup-completed.v1"
-
-    static func bootstrap(
-        for store: AppStore,
-        defaults: UserDefaults = .standard
-    ) -> Bool {
-        if let storedValue = defaults.object(forKey: completionKey) as? Bool {
-            return storedValue
-        }
-
-        // Existing installations with a complete configuration should not be
-        // sent through first-run setup after upgrading.
-        let inferredCompletion = store.hasConfiguredSource && store.hasStoredCredential
-        defaults.set(inferredCompletion, forKey: completionKey)
-        return inferredCompletion
-    }
-
-    static func markCompleted(defaults: UserDefaults = .standard) {
-        defaults.set(true, forKey: completionKey)
-    }
-}
-
 struct SettingsRootView: View {
     @ObservedObject var store: AppStore
-    @AppStorage(SourceSetupOnboarding.completionKey) private var hasCompletedSourceSetup = false
-    @State private var selection: SettingsSection
-
-    init(store: AppStore) {
-        self.store = store
-        let hasCompletedSourceSetup = SourceSetupOnboarding.bootstrap(for: store)
-        _hasCompletedSourceSetup = AppStorage(
-            wrappedValue: hasCompletedSourceSetup,
-            SourceSetupOnboarding.completionKey
-        )
-        _selection = State(initialValue: hasCompletedSourceSetup ? .menuBar : .sources)
-    }
+    @State private var selection: SettingsSection = .menuBar
 
     var body: some View {
         HStack(spacing: 0) {
@@ -62,13 +27,7 @@ struct SettingsRootView: View {
                 case .usage:
                     UsageInsightsView(store: store)
                 case .sources:
-                    SourcesPlaceholderView(
-                        store: store,
-                        showsOnboarding: !hasCompletedSourceSetup
-                    ) {
-                        SourceSetupOnboarding.markCompleted()
-                        hasCompletedSourceSetup = true
-                    }
+                    SourcesPlaceholderView(store: store)
                 }
             }
         }

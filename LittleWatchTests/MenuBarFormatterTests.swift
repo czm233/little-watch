@@ -21,7 +21,7 @@ final class MenuBarFormatterTests: XCTestCase {
             configuration: .default
         )
 
-        XCTAssertEqual(title, "$12.84 · 184K tok")
+        XCTAssertEqual(title, "$12.84 · 184K tok · CPU 0% · MEM 0%")
     }
 
     func testReorderedLabeledTitle() {
@@ -35,7 +35,7 @@ final class MenuBarFormatterTests: XCTestCase {
             configuration: configuration
         )
 
-        XCTAssertEqual(title, "Token 184K tok | 消费 $12.84")
+        XCTAssertEqual(title, "内存 0% | CPU 0% | Token 184K tok | 消费 $12.84")
     }
 
     func testFallsBackWhenEverythingIsHidden() {

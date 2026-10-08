@@ -32,7 +32,16 @@ enum MetricKind: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    var isEnabledByDefault: Bool { self == .cost || self == .tokens }
+    var isEnabledByDefault: Bool {
+        self == .cost || self == .tokens || self == .cpu || self == .memory
+    }
+
+    var isLocalMetric: Bool {
+        switch self {
+        case .cost, .tokens: false
+        case .cpu, .memory, .diskUsage, .diskFree: true
+        }
+    }
 }
 
 struct DisplayFieldConfiguration: Codable, Equatable, Identifiable, Sendable {

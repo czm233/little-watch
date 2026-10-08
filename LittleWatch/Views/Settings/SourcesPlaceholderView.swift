@@ -2,8 +2,6 @@ import SwiftUI
 
 struct SourcesPlaceholderView: View {
     @ObservedObject var store: AppStore
-    let showsOnboarding: Bool
-    let onOnboardingCompleted: () -> Void
     @State private var baseURLString = ""
     @State private var password = ""
     @State private var apiKeyID = ""
@@ -15,31 +13,14 @@ struct SourcesPlaceholderView: View {
         case password
     }
 
-    init(
-        store: AppStore,
-        showsOnboarding: Bool = false,
-        onOnboardingCompleted: @escaping () -> Void = {}
-    ) {
-        self.store = store
-        self.showsOnboarding = showsOnboarding
-        self.onOnboardingCompleted = onOnboardingCompleted
-    }
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
 
-                if showsOnboarding {
-                    onboardingCard
-                    configurationCard
-                    statusCard
-                    localSourceCard
-                } else {
-                    statusCard
-                    localSourceCard
-                    configurationCard
-                }
+                statusCard
+                localSourceCard
+                configurationCard
 
                 endpointGuide
             }
@@ -51,73 +32,7 @@ struct SourcesPlaceholderView: View {
             baseURLString = store.sourceConfiguration.baseURLString
             password = store.sourceConfiguration.password
             apiKeyID = store.sourceConfiguration.apiKeyID
-
-            if showsOnboarding {
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(250))
-                    focusedField = baseURLString.isEmpty ? .baseURL : .password
-                }
-            }
         }
-    }
-
-    private var onboardingCard: some View {
-        HStack(alignment: .top, spacing: 18) {
-            ZStack {
-                Circle()
-                    .fill(LittleWatchTheme.signal.opacity(0.10))
-                    .frame(width: 58, height: 58)
-                Circle()
-                    .stroke(LittleWatchTheme.signal.opacity(0.24), lineWidth: 1)
-                    .frame(width: 46, height: 46)
-                Image(systemName: "point.3.connected.trianglepath.dotted")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(LittleWatchTheme.signal)
-            }
-
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("首次配置 · 约 1 分钟")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .tracking(1.0)
-                        .foregroundStyle(LittleWatchTheme.signal)
-                    Text("连接你的用量服务")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
-                        .foregroundStyle(LittleWatchTheme.primaryText)
-                    Text("准备好 CPA Usage Keeper 的根地址和登录密码。连接验证成功后，Little Watch 就会开始读取用量。")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(LittleWatchTheme.secondaryText)
-                        .lineSpacing(3)
-                }
-
-                HStack(spacing: 8) {
-                    OnboardingStep(
-                        index: "01",
-                        title: "服务地址",
-                        detail: "填写 Keeper 根地址"
-                    )
-                    OnboardingStep(
-                        index: "02",
-                        title: "登录密码",
-                        detail: "输入服务登录密码"
-                    )
-                    OnboardingStep(
-                        index: "03",
-                        title: "验证连接",
-                        detail: "点击连接并保存"
-                    )
-                }
-            }
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(LittleWatchTheme.signal.opacity(0.055))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(LittleWatchTheme.signal.opacity(0.18), lineWidth: 1)
-                }
-        )
     }
 
     private var localSourceCard: some View {
@@ -374,23 +289,6 @@ struct SourcesPlaceholderView: View {
                 .background(LittleWatchTheme.amber.opacity(0.045))
             }
 
-            if showsOnboarding, isFailure {
-                Divider().overlay(LittleWatchTheme.hairline).padding(.leading, 58)
-
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "xmark.octagon.fill")
-                        .foregroundStyle(Color.red.opacity(0.85))
-                    Text(store.connectionStatusDetail)
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color.red.opacity(0.82))
-                        .lineSpacing(3)
-                    Spacer()
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 13)
-                .background(Color.red.opacity(0.035))
-            }
-
             Divider().overlay(LittleWatchTheme.hairline)
 
             HStack {
@@ -493,16 +391,12 @@ struct SourcesPlaceholderView: View {
 
         Task {
             isSaving = true
-            let didConnect = await store.configureSource(
+            await store.configureSource(
                 baseURLString: baseURLString,
                 password: password,
                 apiKeyID: apiKeyID
             )
             isSaving = false
-
-            if didConnect {
-                onOnboardingCompleted()
-            }
         }
     }
 
@@ -546,38 +440,6 @@ struct SourcesPlaceholderView: View {
         MenuBarFormatter()
             .formatDiskFree(store.systemSnapshot.diskFreeBytes)
             .replacingOccurrences(of: "FREE ", with: "")
-    }
-}
-
-private struct OnboardingStep: View {
-    let index: String
-    let title: String
-    let detail: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text(index)
-                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                .foregroundStyle(LittleWatchTheme.signal)
-                .frame(width: 18, height: 18)
-                .background(Circle().fill(LittleWatchTheme.signal.opacity(0.10)))
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(LittleWatchTheme.primaryText)
-                Text(detail)
-                    .font(.system(size: 8.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(LittleWatchTheme.secondaryText)
-                    .lineLimit(1)
-            }
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.black.opacity(0.13))
-        )
     }
 }
 

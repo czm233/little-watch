@@ -20,10 +20,11 @@ struct ConfigurationStore {
         var seen = Set<MetricKind>()
         migrated.fields = migrated.fields.filter { seen.insert($0.kind).inserted }
         for kind in MetricKind.allCases where !seen.contains(kind) {
+            // 已有配置只补齐缺失字段，不改变用户当前的标题显示。
             migrated.fields.append(
                 DisplayFieldConfiguration(
                     kind: kind,
-                    isEnabled: kind.isEnabledByDefault,
+                    isEnabled: false,
                     label: kind.defaultLabel
                 )
             )

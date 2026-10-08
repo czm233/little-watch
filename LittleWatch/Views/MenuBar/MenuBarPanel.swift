@@ -4,23 +4,16 @@ import SwiftUI
 struct MenuBarPanel: View {
     @ObservedObject var store: AppStore
     @Environment(\.openSettings) private var openSettings
-    @AppStorage(SourceSetupOnboarding.completionKey) private var hasCompletedSourceSetup = false
-
-    init(store: AppStore) {
-        self.store = store
-        let hasCompletedSourceSetup = SourceSetupOnboarding.bootstrap(for: store)
-        _hasCompletedSourceSetup = AppStorage(
-            wrappedValue: hasCompletedSourceSetup,
-            SourceSetupOnboarding.completionKey
-        )
-    }
+    @State private var isManualRefreshing = false
+    @State private var showsRefreshConfirmation = false
+    @State private var showsQuotaConfirmation = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
 
-            if hasCompletedSourceSetup {
-                VStack(spacing: 10) {
+            VStack(spacing: 10) {
+                if store.hasConfiguredSource {
                     MetricTile(
                         eyebrow: "本期消费",
                         value: MenuBarFormatter().formatCost(
@@ -37,33 +30,32 @@ struct MenuBarPanel: View {
                         detail: realtimeDetail,
                         symbol: "number"
                     )
-
-                    systemMetrics
-
-                    quotaSummary
-
-                    if let spike = store.snapshot.usageSpike {
-                        HStack(spacing: 9) {
-                            Image(systemName: "bolt.trianglebadge.exclamationmark.fill")
-                                .foregroundStyle(LittleWatchTheme.amber)
-                            Text(spikeSummary(spike))
-                                .font(.system(size: 9.5, weight: .semibold, design: .rounded))
-                                .foregroundStyle(LittleWatchTheme.secondaryText)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: 36)
-                        .background(
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .fill(LittleWatchTheme.amber.opacity(0.055))
-                        )
-                    }
                 }
-                .padding(14)
-            } else {
-                firstRunSetup
-                    .padding(14)
+
+                systemMetrics
+
+                if store.hasConfiguredSource {
+                    quotaSummary
+                }
+
+                if let spike = store.snapshot.usageSpike {
+                    HStack(spacing: 9) {
+                        Image(systemName: "bolt.trianglebadge.exclamationmark.fill")
+                            .foregroundStyle(LittleWatchTheme.amber)
+                        Text(spikeSummary(spike))
+                            .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                            .foregroundStyle(LittleWatchTheme.secondaryText)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 36)
+                    .background(
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(LittleWatchTheme.amber.opacity(0.055))
+                    )
+                }
             }
+            .padding(14)
 
             Divider().overlay(LittleWatchTheme.hairline)
 
@@ -72,77 +64,6 @@ struct MenuBarPanel: View {
         .frame(width: 340)
         .background(LittleWatchTheme.canvas)
         .preferredColorScheme(.dark)
-    }
-
-    private var firstRunSetup: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(LittleWatchTheme.signal.opacity(0.12))
-                    Image(systemName: "point.3.connected.trianglepath.dotted")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(LittleWatchTheme.signal)
-                }
-                .frame(width: 40, height: 40)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("完成首次配置")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundStyle(LittleWatchTheme.primaryText)
-                    Text("连接 CPA Usage Keeper 后开始显示用量")
-                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                        .foregroundStyle(LittleWatchTheme.secondaryText)
-                }
-            }
-
-            HStack(spacing: 7) {
-                setupHint("1", "服务地址")
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(LittleWatchTheme.secondaryText.opacity(0.55))
-                setupHint("2", "登录密码")
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(LittleWatchTheme.secondaryText.opacity(0.55))
-                setupHint("3", "连接验证")
-            }
-
-            Button(action: showSettings) {
-                HStack {
-                    Text("打开数据源配置")
-                    Spacer()
-                    Image(systemName: "arrow.right")
-                }
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(LittleWatchTheme.sidebar)
-                .padding(.horizontal, 13)
-                .frame(height: 36)
-                .background(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(LittleWatchTheme.signal)
-                )
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(16)
-        .background(LittleWatchTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(LittleWatchTheme.signal.opacity(0.17), lineWidth: 1)
-        }
-    }
-
-    private func setupHint(_ index: String, _ title: String) -> some View {
-        HStack(spacing: 4) {
-            Text(index)
-                .foregroundStyle(LittleWatchTheme.signal)
-            Text(title)
-                .foregroundStyle(LittleWatchTheme.secondaryText)
-        }
-        .font(.system(size: 8.5, weight: .bold, design: .rounded))
     }
 
     private var systemMetrics: some View {
@@ -255,11 +176,19 @@ struct MenuBarPanel: View {
 
                 HStack(spacing: 5) {
                     Circle()
-                        .fill(store.isSourceConnected ? LittleWatchTheme.signal : LittleWatchTheme.amber)
+                        .fill(
+                            store.hasConfiguredSource && !store.isSourceConnected
+                                ? LittleWatchTheme.amber
+                                : LittleWatchTheme.signal
+                        )
                         .frame(width: 5, height: 5)
-                    Text("\(store.sourceName) · \(store.connectionStatusText)")
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundStyle(LittleWatchTheme.secondaryText)
+                    Text(
+                        store.hasConfiguredSource
+                            ? "\(store.sourceName) · \(store.connectionStatusText)"
+                            : "本机状态"
+                    )
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(LittleWatchTheme.secondaryText)
                 }
             }
 
@@ -274,24 +203,44 @@ struct MenuBarPanel: View {
 
     private var footer: some View {
         HStack(spacing: 8) {
-            Button {
-                Task { await store.refresh() }
-            } label: {
-                Label(refreshLabel, systemImage: "arrow.clockwise")
-                    .contentShape(Rectangle())
+            Button(action: refreshNow) {
+                HStack(spacing: 4) {
+                    Image(systemName: showsRefreshConfirmation ? "checkmark" : "arrow.clockwise")
+                        .rotationEffect(.degrees(isManualRefreshing ? 360 : 0))
+                        .animation(
+                            isManualRefreshing
+                                ? .linear(duration: 0.7).repeatForever(autoreverses: false)
+                                : .easeOut(duration: 0.2),
+                            value: isManualRefreshing
+                        )
+                    Text(refreshLabel)
+                }
+                .foregroundStyle(
+                    showsRefreshConfirmation
+                        ? LittleWatchTheme.signal
+                        : LittleWatchTheme.secondaryText
+                )
+                .contentShape(Rectangle())
             }
-            .disabled(isRefreshing)
-            .allowsHitTesting(!isRefreshing)
-            .opacity(isRefreshing ? 0.38 : 1)
+            .disabled(isManualRefreshing || isRefreshing)
+            .allowsHitTesting(!isManualRefreshing && !isRefreshing)
+            .opacity(isRefreshing ? 0.38 : (isManualRefreshing ? 0.7 : 1))
             .focusable(false)
 
             Button {
                 Task { await store.refreshQuota() }
             } label: {
-                Label(
-                    store.quotaRefreshButtonLabel,
-                    systemImage: "gauge.with.dots.needle.67percent"
-                )
+                HStack(spacing: 4) {
+                    Image(systemName: showsQuotaConfirmation ? "checkmark" : "gauge.with.dots.needle.67percent")
+                        .rotationEffect(.degrees(isQuotaRefreshing ? 360 : 0))
+                        .animation(
+                            isQuotaRefreshing
+                                ? .linear(duration: 0.7).repeatForever(autoreverses: false)
+                                : .easeOut(duration: 0.2),
+                            value: isQuotaRefreshing
+                        )
+                    Text(quotaLabel)
+                }
                 .contentShape(Rectangle())
             }
             .disabled(!store.canRefreshQuota)
@@ -316,14 +265,53 @@ struct MenuBarPanel: View {
             .help("退出 Little Watch")
             .focusable(false)
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(FooterButtonStyle())
         .font(.system(size: 11, weight: .medium, design: .rounded))
         .foregroundStyle(LittleWatchTheme.secondaryText)
         .padding(14)
+        .onChange(of: store.quotaRefreshState) { _, newState in
+            if case .succeeded = newState {
+                showsQuotaConfirmation = true
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(1600))
+                    showsQuotaConfirmation = false
+                }
+            }
+        }
     }
 
     private var refreshLabel: String {
-        isRefreshing ? "刷新中" : "刷新"
+        if isManualRefreshing { return "刷新中" }
+        if showsRefreshConfirmation { return "已刷新" }
+        return "刷新"
+    }
+
+    private var quotaLabel: String {
+        if showsQuotaConfirmation { return "已更新" }
+        return store.quotaRefreshButtonLabel
+    }
+
+    private var isQuotaRefreshing: Bool {
+        if case .refreshing = store.quotaRefreshState { return true }
+        return false
+    }
+
+    private func refreshNow() {
+        guard !isManualRefreshing else { return }
+        isManualRefreshing = true
+
+        Task { @MainActor in
+            let startedAt = Date()
+            await store.refresh()
+            let elapsed = Date().timeIntervalSince(startedAt)
+            if elapsed < 0.6 {
+                try? await Task.sleep(for: .milliseconds(Int((0.6 - elapsed) * 1000)))
+            }
+            isManualRefreshing = false
+            showsRefreshConfirmation = true
+            try? await Task.sleep(for: .milliseconds(1600))
+            showsRefreshConfirmation = false
+        }
     }
 
     private var isRefreshing: Bool {
@@ -398,6 +386,23 @@ struct MenuBarPanel: View {
         if !isOnScreen {
             window.center()
         }
+    }
+}
+
+private struct FooterButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 7)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(
+                        configuration.isPressed
+                            ? Color.white.opacity(0.16)
+                            : Color.white.opacity(0.05)
+                    )
+            )
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
