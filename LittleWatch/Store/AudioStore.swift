@@ -42,6 +42,10 @@ final class AudioStore: ObservableObject {
         }
 
         refreshDevices()
+        // 冷启动时默认设备可能已落在禁止集合里（如重启后蓝牙先连），
+        // 没有属性变化事件也要跑一次纠正检查。
+        handleDefaultDeviceChange(.output)
+        handleDefaultDeviceChange(.input)
     }
 
     // MARK: - Device state
@@ -115,10 +119,12 @@ final class AudioStore: ObservableObject {
             startLevelUpdatesIfPermitted()
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
-                Task { @MainActor [weak self] in
-                    self?.microphonePermissionDenied = !granted
-                    if granted {
-                        self?.startLevelUpdatesIfPermitted()
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        self?.microphonePermissionDenied = !granted
+                        if granted {
+                            self?.startLevelUpdatesIfPermitted()
+                        }
                     }
                 }
             }
@@ -247,7 +253,7 @@ final class AudioStore: ObservableObject {
 
         if levelTimer == nil {
             levelTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                Task { @MainActor [weak self] in
+                MainActor.assumeIsolated {
                     guard let self else { return }
                     self.inputLevel = self.levelMeter.currentPeak()
                 }

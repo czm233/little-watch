@@ -159,29 +159,37 @@ final class CoreAudioDeviceService {
         guard !listenersInstalled else { return }
         listenersInstalled = true
 
-        installListener(kAudioHardwarePropertyDefaultOutputDevice) { [weak self] in
+        let s1 = installListener(kAudioHardwarePropertyDefaultOutputDevice) { [weak self] in
             self?.onDefaultOutputChanged?()
         }
-        installListener(kAudioHardwarePropertyDefaultInputDevice) { [weak self] in
+        let s2 = installListener(kAudioHardwarePropertyDefaultInputDevice) { [weak self] in
             self?.onDefaultInputChanged?()
         }
-        installListener(kAudioHardwarePropertyDevices) { [weak self] in
+        let s3 = installListener(kAudioHardwarePropertyDevices) { [weak self] in
             self?.onDeviceListChanged?()
+        }
+        if s1 != noErr || s2 != noErr || s3 != noErr {
+            print("[LW-audio] listener registration abnormal: out=\(s1) in=\(s2) devices=\(s3)")
         }
     }
 
+    @discardableResult
     private func installListener(
         _ selector: AudioObjectPropertySelector,
-        onMainActor fire: @escaping () -> Void
-    ) {
+        onMainActor fire: @escaping @MainActor () -> Void
+    ) -> OSStatus {
         var address = AudioObjectPropertyAddress(
             mSelector: selector,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        AudioObjectAddPropertyListenerBlock(systemObject, &address, callbackQueue) { _, _ in
-            Task { @MainActor in fire() }
+        // 直接注册到主队列：回调天然在主线程，无需跨队列跳转。
+        let status = AudioObjectAddPropertyListenerBlock(systemObject, &address, .main) { _, _ in
+            MainActor.assumeIsolated {
+                fire()
+            }
         }
+        return status
     }
 
     // MARK: - Property access helpers
