@@ -97,8 +97,14 @@ final class AudioStore: ObservableObject {
 
     func setVolume(_ value: Double) {
         guard let device = currentDevice(for: .output) else { return }
-        outputVolume = min(max(value, 0), 1)
-        service.setOutputVolume(deviceID: device.id, value)
+        let clamped = min(max(value, 0), 1)
+        outputVolume = clamped
+        // 与系统原生行为一致：静音状态下拖音量条自动解除静音，否则拖了也没声音。
+        if outputMuted {
+            outputMuted = false
+            service.setOutputMuted(deviceID: device.id, false)
+        }
+        service.setOutputVolume(deviceID: device.id, clamped)
     }
 
     /// 滑块拖动结束后回读设备真实音量，防止设备实际值与界面漂移。
@@ -110,6 +116,14 @@ final class AudioStore: ObservableObject {
         guard let device = currentDevice(for: .output) else { return }
         outputMuted = muted
         service.setOutputMuted(deviceID: device.id, muted)
+        // 解除静音时若设备音量是 0，恢复到 50%，避免「取消静音了还是没声」。
+        if !muted {
+            let scalar = service.outputVolume(deviceID: device.id) ?? 0
+            if scalar <= 0.001 {
+                service.setOutputVolume(deviceID: device.id, 0.5)
+                outputVolume = 0.5
+            }
+        }
     }
 
     func requestMicrophonePermission() {
