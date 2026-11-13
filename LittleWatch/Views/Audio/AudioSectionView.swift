@@ -1,3 +1,5 @@
+import AudioToolbox
+import os
 import SwiftUI
 
 struct AudioSectionView: View {
@@ -86,7 +88,10 @@ struct AudioSectionView: View {
                     set: { store.setVolume($0) }
                 ),
                 onEditingChanged: { editing in
-                    if !editing { store.refreshForVolumeSync() }
+                    if !editing {
+                        VolumeFeedbackSound.playIfEnabled()
+                        store.refreshForVolumeSync()
+                    }
                 }
             )
             .controlSize(.mini)
@@ -215,8 +220,7 @@ private struct AudioDeviceRow: View {
     }
 }
 
-private struct InputLevelBar: View {
-    let level: Double
+private struct InputLevelBar: View {    let level: Double
 
     private var litCount: Int {
         Int(min(max(level, 0), 1) * Double(Self.barCount))
@@ -241,5 +245,28 @@ private struct InputLevelBar: View {
         if fraction > 0.85 { return Color(red: 1.0, green: 0.36, blue: 0.32) }
         if fraction > 0.6 { return LittleWatchTheme.amber }
         return LittleWatchTheme.signal
+    }
+}
+
+/// 系统音量调节反馈音：与按键调音量时的 tick 同源（BezelServices volume.aiff）。
+/// 跟随系统「调整音量时播放反馈音」设置（com.apple.sound.beep.feedback，缺省开启）。
+enum VolumeFeedbackSound {
+    private static let cachedSound = OSAllocatedUnfairLock<SystemSoundID>(initialState: 0)
+
+    static func playIfEnabled() {
+        if let value = UserDefaults.standard.object(forKey: "com.apple.sound.beep.feedback") as? Int,
+           value == 0 {
+            return
+        }
+        let sound = cachedSound.withLock { state -> SystemSoundID in
+            if state != 0 { return state }
+            let url = URL(fileURLWithPath: "/System/Library/LoginPlugins/BezelServices.loginPlugin/Contents/Resources/volume.aiff") as CFURL
+            var id = SystemSoundID(0)
+            guard AudioServicesCreateSystemSoundID(url, &id) == noErr else { return 0 }
+            state = id
+            return id
+        }
+        guard sound != 0 else { return }
+        AudioServicesPlaySystemSound(sound)
     }
 }
