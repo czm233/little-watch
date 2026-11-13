@@ -93,6 +93,7 @@ final class AudioStore: ObservableObject {
         ruleState = ruleState.recordingManualSelection(device.uid, for: .input)
         service.setDefaultDevice(device.id, for: .input)
         refreshDefaults(recordManualSelections: false)
+        followDefaultInputWithLevelMeter()
     }
 
     func setForbidden(_ forbidden: Bool, uid: String, direction: AudioDeviceDirection) {
@@ -215,6 +216,10 @@ final class AudioStore: ObservableObject {
     private func handleDefaultDeviceChange(_ direction: AudioDeviceDirection) {
         refreshDevices()
 
+        if direction == .input {
+            followDefaultInputWithLevelMeter()
+        }
+
         let currentUID = switch direction {
         case .output: defaultOutputUID
         case .input: defaultInputUID
@@ -281,5 +286,13 @@ final class AudioStore: ObservableObject {
                 }
             }
         }
+    }
+
+    /// 默认输入设备切换时，电平计跟随切到新设备；仅在面板正在采集时跟随。
+    private func followDefaultInputWithLevelMeter() {
+        guard levelTimer != nil else { return }
+        levelMeter.stop()
+        inputLevel = 0
+        startLevelUpdatesIfPermitted()
     }
 }
