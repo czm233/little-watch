@@ -89,7 +89,6 @@ struct AudioSectionView: View {
                 ),
                 onEditingChanged: { editing in
                     if !editing {
-                        VolumeFeedbackSound.playIfEnabled()
                         store.refreshForVolumeSync()
                     }
                 }
@@ -252,8 +251,22 @@ private struct InputLevelBar: View {    let level: Double
 /// 跟随系统「调整音量时播放反馈音」设置（com.apple.sound.beep.feedback，缺省开启）。
 enum VolumeFeedbackSound {
     private static let cachedSound = OSAllocatedUnfairLock<SystemSoundID>(initialState: 0)
+    private static let lastPlayed = OSAllocatedUnfairLock<Date>(initialState: .distantPast)
+    private static let minInterval: TimeInterval = 0.15
 
-    static func playIfEnabled() {
+    /// 拖动过程中连续写入音量时按最小间隔节流，避免连环响。
+    static func playThrottled() {
+        let now = Date()
+        let shouldPlay = lastPlayed.withLock { state -> Bool in
+            guard now.timeIntervalSince(state) >= minInterval else { return false }
+            state = now
+            return true
+        }
+        guard shouldPlay else { return }
+        play()
+    }
+
+    static func play() {
         if let value = UserDefaults.standard.object(forKey: "com.apple.sound.beep.feedback") as? Int,
            value == 0 {
             return

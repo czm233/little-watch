@@ -114,6 +114,7 @@ final class AudioStore: ObservableObject {
             service.setOutputMuted(deviceID: device.id, false)
         }
         service.setOutputVolume(deviceID: device.id, clamped)
+        VolumeFeedbackSound.playThrottled()
     }
 
     /// 滑块拖动结束后回读设备真实音量，防止设备实际值与界面漂移。
