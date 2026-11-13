@@ -67,7 +67,15 @@ final class AudioStore: ObservableObject {
     /// 面板每次打开时重新枚举，保证拔插后状态是新的。
     func refreshForPanelDisplay() {
         refreshDevices()
-        startLevelUpdatesIfPermitted()
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            startLevelUpdatesIfPermitted()
+        case .notDetermined:
+            requestMicrophonePermission()
+        default:
+            microphonePermissionDenied = true
+            stopLevelUpdates()
+        }
     }
 
     // MARK: - User actions

@@ -120,9 +120,16 @@ struct AudioSectionView: View {
             Text("电平")
                 .font(.system(size: 10, weight: .bold, design: .rounded))
                 .foregroundStyle(LittleWatchTheme.secondaryText)
+                .help(store.microphonePermissionDenied ? "需要麦克风权限" : "")
             Spacer()
-            InputLevelBar(level: store.inputLevel)
-                .frame(width: 120, height: 14)
+            if store.microphonePermissionDenied {
+                Text("无麦克风权限")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(LittleWatchTheme.amber.opacity(0.85))
+            } else {
+                InputLevelBar(level: store.inputLevel)
+                    .frame(width: 120, height: 14)
+            }
         }
         .padding(.top, 4)
     }
