@@ -1,4 +1,4 @@
-import AudioToolbox
+@preconcurrency import AVFoundation
 import os
 import SwiftUI
 
@@ -250,7 +250,7 @@ private struct InputLevelBar: View {    let level: Double
 /// 系统音量调节反馈音：与按键调音量时的 tick 同源（BezelServices volume.aiff）。
 /// 跟随系统「调整音量时播放反馈音」设置（com.apple.sound.beep.feedback，缺省开启）。
 enum VolumeFeedbackSound {
-    private static let cachedSound = OSAllocatedUnfairLock<SystemSoundID>(initialState: 0)
+    private static let player = OSAllocatedUnfairLock<AVAudioPlayer?>(initialState: nil)
     private static let lastPlayed = OSAllocatedUnfairLock<Date>(initialState: .distantPast)
     private static let minInterval: TimeInterval = 0.15
 
@@ -269,17 +269,25 @@ enum VolumeFeedbackSound {
     static func play() {
         if let value = UserDefaults.standard.object(forKey: "com.apple.sound.beep.feedback") as? Int,
            value == 0 {
+            NSLog("[LW-audio] tick skipped: feedback pref disabled")
             return
         }
-        let sound = cachedSound.withLock { state -> SystemSoundID in
-            if state != 0 { return state }
-            let url = URL(fileURLWithPath: "/System/Library/LoginPlugins/BezelServices.loginPlugin/Contents/Resources/volume.aiff") as CFURL
-            var id = SystemSoundID(0)
-            guard AudioServicesCreateSystemSoundID(url, &id) == noErr else { return 0 }
-            state = id
-            return id
+        let ok = player.withLock { state -> Bool in
+            if let existing = state {
+                existing.currentTime = 0
+                return existing.play()
+            }
+            let url = URL(fileURLWithPath: "/System/Library/LoginPlugins/BezelServices.loginPlugin/Contents/Resources/volume.aiff")
+            do {
+                let created = try AVAudioPlayer(contentsOf: url)
+                created.volume = 0.7
+                state = created
+                return created.play()
+            } catch {
+                NSLog("[LW-audio] tick player create failed: \(error)")
+                return false
+            }
         }
-        guard sound != 0 else { return }
-        AudioServicesPlaySystemSound(sound)
+        NSLog("[LW-audio] tick play -> \(ok)")
     }
 }
