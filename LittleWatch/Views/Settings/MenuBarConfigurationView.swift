@@ -128,23 +128,10 @@ struct MenuBarConfigurationView: View {
 
                 SettingControlRow(
                     title: "显示字段名称",
-                    detail: "例如“消费 $12.84”",
+                    detail: "例如“CPU 12%”",
                     symbol: "textformat"
                 ) {
                     Toggle("", isOn: binding(\.showLabels))
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                }
-
-                controlDivider
-
-                SettingControlRow(
-                    title: "紧凑 Token",
-                    detail: "184,240 显示为 184K",
-                    symbol: "arrow.down.right.and.arrow.up.left"
-                ) {
-                    Toggle("", isOn: binding(\.compactTokens))
                         .labelsHidden()
                         .toggleStyle(.switch)
                         .controlSize(.small)
@@ -160,22 +147,6 @@ struct MenuBarConfigurationView: View {
                     Picker("", selection: binding(\.separator)) {
                         ForEach(SeparatorStyle.allCases) { style in
                             Text(style.displayName).tag(style)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 105)
-                }
-
-                controlDivider
-
-                SettingControlRow(
-                    title: "金额小数位",
-                    detail: "最多保留三位",
-                    symbol: "decimalpoint"
-                ) {
-                    Picker("", selection: binding(\.costPrecision)) {
-                        ForEach(0...3, id: \.self) { precision in
-                            Text("\(precision) 位").tag(precision)
                         }
                     }
                     .labelsHidden()
@@ -242,16 +213,6 @@ struct MenuBarConfigurationView: View {
 
     private func sample(for kind: MetricKind) -> String {
         switch kind {
-        case .cost:
-            MenuBarFormatter().formatCost(
-                store.snapshot.costUSD,
-                precision: store.configuration.costPrecision
-            )
-        case .tokens:
-            MenuBarFormatter().formatTokens(
-                store.snapshot.tokenCount,
-                compact: store.configuration.compactTokens
-            )
         case .cpu:
             MenuBarFormatter().formatPercent(store.systemSnapshot.cpuUsagePercent, prefix: "CPU")
         case .memory:
@@ -265,8 +226,6 @@ struct MenuBarConfigurationView: View {
 
     private func color(for kind: MetricKind) -> Color {
         switch kind {
-        case .cost: LittleWatchTheme.amber
-        case .tokens: LittleWatchTheme.cyan
         case .cpu: LittleWatchTheme.signal
         case .memory: Color(red: 0.68, green: 0.55, blue: 1.0)
         case .diskUsage: Color(red: 1.0, green: 0.48, blue: 0.40)

@@ -40,38 +40,9 @@ struct ConfigurationStore {
     }
 }
 
-struct DailyUsageCounterResetStore {
-    private let defaults: UserDefaults
-    private let key = "littlewatch.daily-usage-counter.reset.v1"
-
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
-    func load() -> DailyUsageCounterReset? {
-        guard
-            let data = defaults.data(forKey: key),
-            let reset = try? JSONDecoder().decode(DailyUsageCounterReset.self, from: data)
-        else {
-            return nil
-        }
-        return reset
-    }
-
-    func save(_ reset: DailyUsageCounterReset) {
-        guard let data = try? JSONEncoder().encode(reset) else { return }
-        defaults.set(data, forKey: key)
-    }
-
-    func clear() {
-        defaults.removeObject(forKey: key)
-    }
-}
-
 struct MenuBarFormatter {
     func title(
-        for snapshot: MetricSnapshot,
-        systemSnapshot: SystemMetricsSnapshot,
+        for systemSnapshot: SystemMetricsSnapshot,
         configuration: AppConfiguration,
         rotationIndex: Int = 0
     ) -> String {
@@ -84,13 +55,8 @@ struct MenuBarFormatter {
         }
 
         let values = displayedFields.map { field -> String in
-
             let value: String
             switch field.kind {
-            case .cost:
-                value = formatCost(snapshot.costUSD, precision: configuration.costPrecision)
-            case .tokens:
-                value = formatTokens(snapshot.tokenCount, compact: configuration.compactTokens)
             case .cpu:
                 value = formatPercent(systemSnapshot.cpuUsagePercent, prefix: configuration.showLabels ? "" : "CPU")
             case .memory:
@@ -110,10 +76,6 @@ struct MenuBarFormatter {
         return values.isEmpty ? "Little Watch" : values.joined(separator: configuration.separator.rawValue)
     }
 
-    func title(for snapshot: MetricSnapshot, configuration: AppConfiguration) -> String {
-        title(for: snapshot, systemSnapshot: .empty, configuration: configuration)
-    }
-
     func formatPercent(_ value: Double, prefix: String) -> String {
         let percent = "\(Int(value.rounded()))%"
         return prefix.isEmpty ? percent : "\(prefix) \(percent)"
@@ -122,32 +84,5 @@ struct MenuBarFormatter {
     func formatDiskFree(_ bytes: Int64) -> String {
         let gigabytes = Double(max(bytes, 0)) / 1_000_000_000
         return String(format: "FREE %.2f GB", gigabytes)
-    }
-
-    func formatCost(_ value: Double, precision: Int) -> String {
-        let safePrecision = min(max(precision, 0), 3)
-        return String(format: "$%.\(safePrecision)f", value)
-    }
-
-    func formatTokens(_ value: Int, compact: Bool) -> String {
-        guard compact else {
-            return "\(value.formatted(.number.grouping(.automatic))) tok"
-        }
-
-        switch value {
-        case 1_000_000...:
-            return compactNumber(Double(value) / 1_000_000, suffix: "M tok")
-        case 1_000...:
-            return compactNumber(Double(value) / 1_000, suffix: "K tok")
-        default:
-            return "\(value) tok"
-        }
-    }
-
-    private func compactNumber(_ value: Double, suffix: String) -> String {
-        let formatted = value >= 100
-            ? String(format: "%.0f", value)
-            : String(format: "%.1f", value).replacingOccurrences(of: ".0", with: "")
-        return "\(formatted)\(suffix)"
     }
 }

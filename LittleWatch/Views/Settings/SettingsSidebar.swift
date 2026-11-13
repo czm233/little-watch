@@ -2,32 +2,24 @@ import SwiftUI
 
 enum SettingsSection: String, CaseIterable, Identifiable {
     case menuBar
-    case usage
-    case sources
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .menuBar: "顶部栏"
-        case .usage: "用量与提醒"
-        case .sources: "数据来源"
         }
     }
 
     var symbol: String {
         switch self {
         case .menuBar: "menubar.rectangle"
-        case .usage: "chart.xyaxis.line"
-        case .sources: "point.3.connected.trianglepath.dotted"
         }
     }
 }
 
 struct SettingsSidebar: View {
     @Binding var selection: SettingsSection
-    let sourceName: String
-    let isSourceConnected: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -73,26 +65,6 @@ struct SettingsSidebar: View {
             }
 
             Spacer()
-
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(isSourceConnected ? LittleWatchTheme.signal : LittleWatchTheme.amber)
-                        .frame(width: 6, height: 6)
-                        .shadow(
-                            color: (isSourceConnected ? LittleWatchTheme.signal : LittleWatchTheme.amber).opacity(0.7),
-                            radius: 4
-                        )
-                    Text(isSourceConnected ? "SOURCE ONLINE" : "SOURCE SETUP")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .tracking(1.0)
-                        .foregroundStyle(isSourceConnected ? LittleWatchTheme.signal : LittleWatchTheme.amber)
-                }
-                Text(sourceName)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(LittleWatchTheme.secondaryText)
-            }
-            .padding(18)
         }
         .frame(width: 190)
         .background(LittleWatchTheme.sidebar)
