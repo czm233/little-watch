@@ -9,6 +9,8 @@
 3. **明确提醒用户去看新版本**
 
 约定：
-- 构建用 `-derivedDataPath /tmp/lw-dd`；版本号递增（当前 0.3.1），`SWIFT_TREAT_WARNINGS_AS_ERRORS=YES`
-- 每次改动单独 commit；push 仍需用户批准
+- 构建用 `-derivedDataPath /tmp/lw-dd`；版本号递增（当前 0.3.9），`SWIFT_TREAT_WARNINGS_AS_ERRORS=YES`
+- 每次改动单独 commit；**push 仍需用户批准；"submit"/"提交"同样不等于 push 授权**（2026-11-13 事故：用户说 submit，AI 在已全部 commit 的情况下自行推送到 GitHub）——提交类指令在已全部 commit 时视为无操作或反向确认，只有用户明说"推送/push 到 GitHub"才推
+- 推送前按用户级规则 18.7 全量扫描待推送提交（密钥/URL/凭证文件）
 - 安装前 `xattr -dr com.apple.quarantine`，安装后确认 `pgrep` 存活才算交付完成
+- app 必须保持正式开发者签名（Team `9F2BHVCLNL`）；麦克风等 TCC 敏感权限依赖签名 + entitlements（见 `LittleWatch/Resources/LittleWatch.entitlements`），Ad-hoc 签名会被系统静默拒绝弹窗
