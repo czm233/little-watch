@@ -16,8 +16,15 @@
 		A0000000000000000000000B /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000B /* SettingsRootView.swift */; };
 		A0000000000000000000000C /* MenuBarConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000C /* MenuBarConfigurationView.swift */; };
 		A0000000000000000000000E /* MenuBarFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000E /* MenuBarFormatterTests.swift */; };
+		AD3000000000000000000003 /* AudioRuleEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD3000000000000000000003 /* AudioRuleEngineTests.swift */; };
 		A00000000000000000000014 /* SystemMetricsSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000015 /* SystemMetricsSnapshot.swift */; };
 		A00000000000000000000015 /* SystemMetricsMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000016 /* SystemMetricsMonitor.swift */; };
+		A00000000000000000000016 /* AudioDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000017 /* AudioDevice.swift */; };
+		A00000000000000000000017 /* CoreAudioDeviceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000018 /* CoreAudioDeviceService.swift */; };
+		A00000000000000000000018 /* AudioRuleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000019 /* AudioRuleEngine.swift */; };
+		A00000000000000000000019 /* InputLevelMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001A /* InputLevelMeter.swift */; };
+		A0000000000000000000001A /* AudioStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001B /* AudioStore.swift */; };
+		A0000000000000000000001B /* AudioSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000001C /* AudioSectionView.swift */; };
 		AA1000000000000000000001 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1000000000000000000001 /* LaunchAtLoginController.swift */; };
 		AA1000000000000000000002 /* LaunchAtLoginControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1000000000000000000002 /* LaunchAtLoginControllerTests.swift */; };
 /* End PBXBuildFile section */
@@ -43,9 +50,16 @@
 		B0000000000000000000000B /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
 		B0000000000000000000000C /* MenuBarConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarConfigurationView.swift; sourceTree = "<group>"; };
 		B0000000000000000000000E /* MenuBarFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarFormatterTests.swift; sourceTree = "<group>"; };
+		BD3000000000000000000003 /* AudioRuleEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRuleEngineTests.swift; sourceTree = "<group>"; };
 		B00000000000000000000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B00000000000000000000015 /* SystemMetricsSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMetricsSnapshot.swift; sourceTree = "<group>"; };
 		B00000000000000000000016 /* SystemMetricsMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMetricsMonitor.swift; sourceTree = "<group>"; };
+		B00000000000000000000017 /* AudioDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioDevice.swift; sourceTree = "<group>"; };
+		B00000000000000000000018 /* CoreAudioDeviceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreAudioDeviceService.swift; sourceTree = "<group>"; };
+		B00000000000000000000019 /* AudioRuleEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRuleEngine.swift; sourceTree = "<group>"; };
+		B0000000000000000000001A /* InputLevelMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputLevelMeter.swift; sourceTree = "<group>"; };
+		B0000000000000000000001B /* AudioStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioStore.swift; sourceTree = "<group>"; };
+		B0000000000000000000001C /* AudioSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSectionView.swift; sourceTree = "<group>"; };
 		BB1000000000000000000001 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
 		BB1000000000000000000002 /* LaunchAtLoginControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginControllerTests.swift; sourceTree = "<group>"; };
 		B00000000000000000000100 /* LittleWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LittleWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -71,6 +85,7 @@
 			isa = PBXGroup;
 			children = (
 				C00000000000000000000003 /* App */,
+				C0000000000000000000000F /* Audio */,
 				C00000000000000000000004 /* Models */,
 								C00000000000000000000006 /* Services */,
 				C00000000000000000000007 /* Store */,
@@ -81,18 +96,20 @@
 			sourceTree = "<group>";
 		};
 		C00000000000000000000003 /* App */ = {isa = PBXGroup; children = (B00000000000000000000001 /* LittleWatchApp.swift */,); path = App; sourceTree = "<group>"; };
+		C0000000000000000000000F /* Audio */ = {isa = PBXGroup; children = (B00000000000000000000017 /* AudioDevice.swift */, B00000000000000000000018 /* CoreAudioDeviceService.swift */, B00000000000000000000019 /* AudioRuleEngine.swift */, B0000000000000000000001A /* InputLevelMeter.swift */,); path = Audio; sourceTree = "<group>"; };
 		C00000000000000000000004 /* Models */ = {isa = PBXGroup; children = (B00000000000000000000003 /* DisplayConfiguration.swift */, B00000000000000000000015 /* SystemMetricsSnapshot.swift */,); path = Models; sourceTree = "<group>"; };
 		C00000000000000000000006 /* Services */ = {isa = PBXGroup; children = (B00000000000000000000005 /* ConfigurationStore.swift */, BB1000000000000000000001 /* LaunchAtLoginController.swift */, B00000000000000000000016 /* SystemMetricsMonitor.swift */,); path = Services; sourceTree = "<group>"; };
-		C00000000000000000000007 /* Store */ = {isa = PBXGroup; children = (B00000000000000000000006 /* AppStore.swift */,); path = Store; sourceTree = "<group>"; };
+		C00000000000000000000007 /* Store */ = {isa = PBXGroup; children = (B0000000000000000000001B /* AudioStore.swift */, B00000000000000000000006 /* AppStore.swift */,); path = Store; sourceTree = "<group>"; };
 		C00000000000000000000008 /* Views */ = {
 			isa = PBXGroup;
-			children = (C00000000000000000000009 /* Components */, C0000000000000000000000A /* MenuBar */, C0000000000000000000000D /* Settings */,);
+			children = (C00000000000000000000010 /* Audio */, C00000000000000000000009 /* Components */, C0000000000000000000000A /* MenuBar */, C0000000000000000000000D /* Settings */,);
 			path = Views;
 			sourceTree = "<group>";
 		};
+		C00000000000000000000010 /* Audio */ = {isa = PBXGroup; children = (B0000000000000000000001C /* AudioSectionView.swift */,); path = Audio; sourceTree = "<group>"; };
 		C00000000000000000000009 /* Components */ = {isa = PBXGroup; children = (B00000000000000000000007 /* Theme.swift */,); path = Components; sourceTree = "<group>"; };
 		C0000000000000000000000A /* MenuBar */ = {isa = PBXGroup; children = (B00000000000000000000009 /* MenuBarPanel.swift */,); path = MenuBar; sourceTree = "<group>"; };
-		C0000000000000000000000B /* LittleWatchTests */ = {isa = PBXGroup; children = (BB1000000000000000000002 /* LaunchAtLoginControllerTests.swift */, B0000000000000000000000E /* MenuBarFormatterTests.swift */,); path = LittleWatchTests; sourceTree = "<group>"; };
+		C0000000000000000000000B /* LittleWatchTests */ = {isa = PBXGroup; children = (BD3000000000000000000003 /* AudioRuleEngineTests.swift */, BB1000000000000000000002 /* LaunchAtLoginControllerTests.swift */, B0000000000000000000000E /* MenuBarFormatterTests.swift */,); path = LittleWatchTests; sourceTree = "<group>"; };
 		C0000000000000000000000C /* Products */ = {isa = PBXGroup; children = (B00000000000000000000100 /* LittleWatch.app */, B00000000000000000000101 /* LittleWatchTests.xctest */,); name = Products; sourceTree = "<group>"; };
 		C0000000000000000000000D /* Settings */ = {isa = PBXGroup; children = (B0000000000000000000000C /* MenuBarConfigurationView.swift */, B0000000000000000000000B /* SettingsRootView.swift */, B0000000000000000000000A /* SettingsSidebar.swift */,); path = Settings; sourceTree = "<group>"; };
 		C0000000000000000000000E /* Resources */ = {isa = PBXGroup; children = (B00000000000000000000014 /* Info.plist */,); path = Resources; sourceTree = "<group>"; };
@@ -149,10 +166,10 @@
 		D00000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (A00000000000000000000001, A00000000000000000000003, A00000000000000000000005, A00000000000000000000006, A00000000000000000000007, A00000000000000000000009, A0000000000000000000000A, A0000000000000000000000B, A0000000000000000000000C, A00000000000000000000014, A00000000000000000000015, AA1000000000000000000001, AD3000000000000000000001,);
+			files = (A00000000000000000000001, A00000000000000000000003, A00000000000000000000005, A00000000000000000000006, A00000000000000000000007, A00000000000000000000009, A0000000000000000000000A, A0000000000000000000000B, A0000000000000000000000C, A00000000000000000000014, A00000000000000000000015, A00000000000000000000016, A00000000000000000000017, A00000000000000000000018, A00000000000000000000019, A0000000000000000000001A, A0000000000000000000001B, A0000000000000000000001C, AA1000000000000000000001,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D00000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (AA1000000000000000000002, A0000000000000000000000E,); runOnlyForDeploymentPostprocessing = 0; };
+		D00000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (AD3000000000000000000003, AA1000000000000000000002, A0000000000000000000000E,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */

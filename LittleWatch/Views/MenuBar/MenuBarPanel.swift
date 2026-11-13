@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MenuBarPanel: View {
     @ObservedObject var store: AppStore
+    @ObservedObject var audioStore: AudioStore
     @Environment(\.openSettings) private var openSettings
     @State private var isRefreshing = false
 
@@ -12,8 +13,15 @@ struct MenuBarPanel: View {
 
             VStack(spacing: 10) {
                 systemMetrics
+                AudioSectionView(store: audioStore)
             }
             .padding(14)
+            .onAppear {
+                audioStore.refreshForPanelDisplay()
+            }
+            .onDisappear {
+                audioStore.stopLevelUpdates()
+            }
 
             Divider().overlay(LittleWatchTheme.hairline)
 

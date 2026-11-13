@@ -3,13 +3,18 @@ import SwiftUI
 @main
 struct LittleWatchApp: App {
     @StateObject private var store = AppStore()
+    @StateObject private var audioStore = AudioStore()
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarPanel(store: store)
+            MenuBarPanel(store: store, audioStore: audioStore)
         } label: {
-            Text(store.menuBarTitle)
-                .monospacedDigit()
+            HStack(spacing: 4) {
+                Image(systemName: audioStore.outputMuted ? "line.horizontal.3" : "waveform")
+                    .symbolRenderingMode(.hierarchical)
+                Text(store.menuBarTitle)
+                    .monospacedDigit()
+            }
         }
         .menuBarExtraStyle(.window)
 
