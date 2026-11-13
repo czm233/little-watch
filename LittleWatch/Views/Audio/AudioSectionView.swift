@@ -111,7 +111,7 @@ struct AudioSectionView: View {
 
     private var volumeText: String {
         store.volumeControlAvailable
-            ? "\(Int((store.outputVolume ?? 0).rounded() * 100))%"
+            ? "\(Int(((store.outputVolume ?? 0) * 100).rounded()))%"
             : "不支持"
     }
 
