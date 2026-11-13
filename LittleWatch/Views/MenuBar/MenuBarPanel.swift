@@ -132,6 +132,10 @@ struct MenuBarPanel: View {
             .opacity(isRefreshing ? 0.38 : 1)
             .focusable(false)
 
+            Text(appVersion)
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundStyle(LittleWatchTheme.secondaryText.opacity(0.5))
+
             Spacer()
 
             Button(action: showSettings) {
@@ -157,6 +161,11 @@ struct MenuBarPanel: View {
 
     private var refreshLabel: String {
         isRefreshing ? "刷新中" : "刷新"
+    }
+
+    private var appVersion: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        return "v\(version)"
     }
 
     private func showSettings() {
